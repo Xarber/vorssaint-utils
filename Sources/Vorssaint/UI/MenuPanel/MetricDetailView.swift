@@ -164,6 +164,9 @@ struct MetricDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             summaryCard
             detailCard
+            if kind == .connectedDevices && !monitor.snapshot.usbPorts.isEmpty {
+                cableDetailsCard
+            }
             if kind == .network {
                 speedTestCard
             }
@@ -363,6 +366,55 @@ struct MetricDetailView: View {
             }
         }
         .panelCard()
+    }
+
+    private var cableDetailsCard: some View {
+        let strings = FeatureStrings.connectedDevices(l10n.language)
+        return DisclosureGroup {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(monitor.snapshot.usbPorts) { port in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label(String(format: strings.portFormat, port.portNumber), systemImage: "cable.connector")
+                            .font(.caption.weight(.semibold))
+                        let ratedValues = cableRating(port.cable)
+                        if !ratedValues.isEmpty {
+                            detailRow(row(strings.cableRating, ratedValues.joined(separator: " · "), wrapsValue: true))
+                        }
+                        if let rate = port.negotiatedUSBRate {
+                            detailRow(row(strings.usbLink, rateLabel(rate)))
+                        }
+                        if let watts = port.selectedPowerWatts {
+                            detailRow(row(strings.selectedPower, MetricFormat.watts(watts)))
+                        }
+                        if port.thunderboltPresent {
+                            Label("Thunderbolt / USB4", systemImage: "bolt")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .padding(.top, 6)
+        } label: {
+            Text(strings.cableDetails).font(.callout.weight(.medium))
+        }
+        .panelCard()
+    }
+
+    private func cableRating(_ reading: USBCableReading?) -> [String] {
+        guard let reading else { return [] }
+        var values: [String] = []
+        if let rate = reading.advertisedRate {
+            values.append(rate.lowerBound == rate.upperBound
+                          ? rateLabel(rate.lowerBound)
+                          : "\(rate.lowerBound / 1_000)–\(rate.upperBound / 1_000) Gbps")
+        }
+        if let amps = reading.advertisedAmps { values.append("\(amps) A") }
+        if let watts = reading.advertisedWatts { values.append(MetricFormat.watts(Double(watts))) }
+        return values
+    }
+
+    private func rateLabel(_ megabits: Int) -> String {
+        megabits < 1_000 ? "\(megabits) Mbps" : "\(megabits / 1_000) Gbps"
     }
 
     private var detailRows: [MetricDetailRow] {

@@ -68,6 +68,7 @@ struct SystemSnapshot {
 
     // Connected USB Devices
     var connectedDevices: [ConnectedUSBDevice] = []
+    var usbPorts: [USBPortReading] = []
 
     // History (oldest → newest) for the graphs
     var cpuHistory: [Double] = []          // 0...1
@@ -212,6 +213,7 @@ final class SystemMonitor: ObservableObject {
     private var peripheralSamplingEnabled = false
     private var peripheralSampleDue = false
     private var lastConnectedDevices: [ConnectedUSBDevice] = []
+    private var lastUSBPorts: [USBPortReading]?
     private var lastPublishedPlan: SamplingPlan?
     private var lastPublishedForeground: Bool?
 
@@ -743,6 +745,7 @@ final class SystemMonitor: ObservableObject {
         refreshInFlight = true
         let suppressGPUReadsUntil = self.suppressGPUReadsUntil
         let foregroundSampling = fullMonitorVisible || menuPanelNeeds.any || notchDetailNeeds.any || notchVisible
+        let cableDetailsVisible = menuPanelNeeds.connectedDevices || notchDetailNeeds.connectedDevices
         let intervalSeconds = self.intervalSeconds
         // Ticks advance by the timer's cadence so `tick % stride` keeps
         // measuring base intervals; mutated on main only, read by the queue
@@ -951,11 +954,17 @@ final class SystemMonitor: ObservableObject {
             }
 
             if plan.needConnectedDevices {
-                if take(.connectedDevices) {
+                let refresh = take(.connectedDevices)
+                if refresh {
                     self.lastConnectedDevices = self.usbSampler.sample()
                 }
                 next.connectedDevices = self.lastConnectedDevices
+                if cableDetailsVisible {
+                    if refresh || self.lastUSBPorts == nil { self.lastUSBPorts = USBCableSampler.sample() }
+                    next.usbPorts = self.lastUSBPorts ?? []
+                }
             }
+            if !cableDetailsVisible || !plan.needConnectedDevices { self.lastUSBPorts = nil }
 
             next.cpuHistory = plan.needCPU
                 ? self.cpuHistory.publishedValues(whileVisible: foregroundSampling) : []

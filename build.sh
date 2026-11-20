@@ -574,6 +574,7 @@ if (( TEST )); then
         Sources/Vorssaint/Services/Metrics/DiskSupport.swift
         Sources/Vorssaint/Services/Metrics/MonitorSamplingPolicy.swift
         Sources/Vorssaint/Services/Metrics/USBDeviceSampler.swift
+        Sources/Vorssaint/Services/Metrics/USBCableSampler.swift
         Sources/Vorssaint/Services/Metrics/CPUCoreSampler.swift
         Sources/Vorssaint/Services/Metrics/MaxCapacityProbe.swift
         Sources/Vorssaint/Services/Metrics/TemperatureSensorSelector.swift

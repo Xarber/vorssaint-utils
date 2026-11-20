@@ -1236,6 +1236,7 @@ enum MetricsFeatureTests {
             "idProduct": 0x5583,
             "locationID": 0x01100000,
         ]
+        usbCableRatings(suite)
         let parsedUSB = USBDeviceSampler.parseDevice(properties: validUSBProps)
         suite.expect(parsedUSB?.name == "SanDisk Extreme" && parsedUSB?.vendorName == "SanDisk",
                      "external USB product and vendor names are retained")
@@ -1278,4 +1279,32 @@ enum MetricsFeatureTests {
 
         MetricFormat.locale = originalLocale
     }
+
+    private static func usbCableRatings(_ suite: TestSuite) {
+        func encode(_ value: UInt32) -> Data {
+            var word = value.littleEndian
+            return withUnsafeBytes(of: &word) { Data($0) }
+        }
+        func cable(_ kind: UInt32, _ flags: UInt32) -> [Data] {
+            [encode(kind << 27), encode(0), encode(0), encode(flags)]
+        }
+        let epr = USBCableReading.decode(cable(3, 4 | (2 << 5) | (3 << 9) | (1 << 17)))
+        suite.expect(epr?.advertisedRate == 80_000...80_000
+                     && epr?.advertisedAmps == 5 && epr?.advertisedWatts == 240,
+                     "an explicit e-marked EPR rating uses the 48 V delivery ceiling")
+        let ambiguous = USBCableReading.decode(cable(3, 3 | (2 << 5) | (3 << 9)))
+        suite.expect(ambiguous?.advertisedRate == 20_000...40_000 && ambiguous?.advertisedWatts == 100,
+                     "an ambiguous USB-PD revision stays a rate range and insulation alone cannot imply EPR")
+        let dataOnly = USBCableReading.decode(cable(4, 1 | (2 << 5)))
+        suite.expect(dataOnly?.advertisedRate == 5_000...5_000 && dataOnly?.advertisedAmps == nil
+                     && dataOnly?.advertisedWatts == nil,
+                     "an active cable without VBUS passthrough cannot report a power rating")
+        let reserved = USBCableReading.decode(cable(3, 7 | (3 << 5)))
+        suite.expect(reserved?.advertisedRate == nil && reserved?.advertisedWatts == nil,
+                     "reserved values remain unknown")
+        suite.expect(USBCableReading.decode(cable(6, 1)) == nil
+                     && USBCableReading.decode([Data(), encode(0), encode(0), encode(1)]) == nil,
+                     "non-cable and malformed identity records are ignored")
+    }
+
 }
