@@ -55,6 +55,12 @@ struct USBPortReading: Identifiable, Equatable, Sendable {
     var id: Int { portNumber }
 }
 
+struct ThunderboltRouterReading: Identifiable, Equatable, Sendable {
+    let id: UInt64
+    let parent: UInt64?
+    let name: String?
+}
+
 /// Read-only observations. No USB user clients, device probes or raw registry
 /// dumps are needed. The system monitor calls this on its sampling queue.
 enum USBCableSampler {
@@ -107,6 +113,48 @@ enum USBCableSampler {
             port.selectedPowerWatts = Double(millivolts) * Double(milliamps) / 1_000_000
         }
         return ports.values.sorted { $0.portNumber < $1.portNumber }
+    }
+
+    static func thunderboltRouters() -> [ThunderboltRouterReading] {
+        var result: [UInt64: ThunderboltRouterReading] = [:]
+        for className in ["IOThunderboltSwitch", "IOIOThunderboltSwitch"] {
+            guard let matching = IOServiceMatching(className) else { continue }
+            var iterator: io_iterator_t = 0
+            guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator) == KERN_SUCCESS else { continue }
+            defer { IOObjectRelease(iterator) }
+            while result.count < 128, case let service = IOIteratorNext(iterator), service != 0 {
+                defer { IOObjectRelease(service) }
+                guard let id = registryID(service), result[id] == nil else { continue }
+                let name = (property(service, "Device Model Name") as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                result[id] = ThunderboltRouterReading(id: id, parent: routerParent(service),
+                                                      name: name.flatMap { $0.isEmpty ? nil : String($0.prefix(160)) })
+            }
+        }
+        // Host controllers without downstream devices do not form an active chain.
+        let activeParents = Set(result.values.compactMap(\.parent))
+        return result.values.filter { $0.parent != nil || activeParents.contains($0.id) }.sorted { $0.id < $1.id }
+    }
+
+    private static func routerParent(_ entry: io_registry_entry_t) -> UInt64? {
+        var current = entry
+        IOObjectRetain(current)
+        defer { IOObjectRelease(current) }
+        for _ in 0..<32 {
+            var parent: io_registry_entry_t = 0
+            guard IORegistryEntryGetParentEntry(current, kIOServicePlane, &parent) == KERN_SUCCESS else { return nil }
+            IOObjectRelease(current)
+            current = parent
+            if IOObjectConformsTo(current, "IOThunderboltSwitch") != 0 || IOObjectConformsTo(current, "IOIOThunderboltSwitch") != 0 {
+                return registryID(current)
+            }
+        }
+        return nil
+    }
+
+    private static func registryID(_ entry: io_registry_entry_t) -> UInt64? {
+        var id: UInt64 = 0
+        return IORegistryEntryGetRegistryEntryID(entry, &id) == KERN_SUCCESS ? id : nil
     }
 
     private static func property(_ entry: io_registry_entry_t, _ key: String) -> Any? {

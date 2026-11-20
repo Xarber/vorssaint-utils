@@ -153,8 +153,64 @@ static int upload_file(LIBMTP_mtpdevice_t *device, uint32_t storage, uint32_t fo
     return result != 0 || cancelled;
 }
 
+static uint32_t normalize_parent(uint32_t parent) {
+    return parent == 0 ? LIBMTP_FILES_AND_FOLDERS_ROOT : parent;
+}
+
+static int valid_name(const char *name) {
+    if (!*name || strlen(name) > 255 || !strcmp(name, ".") || !strcmp(name, "..")) return 0;
+    for (const unsigned char *p = (const unsigned char *)name; *p; ++p) {
+        if (*p < 32 || *p == 127 || *p == '/' || *p == '\\' || *p == ':') return 0;
+    }
+    return 1;
+}
+
+static int destination_available(LIBMTP_mtpdevice_t *device, uint32_t storage,
+                                 uint32_t folder, uint32_t object, const char *name) {
+    LIBMTP_Clear_Errorstack(device);
+    int free_name = 1;
+    for (LIBMTP_file_t *item = LIBMTP_Get_Files_And_Folders(device, storage, folder); item;) {
+        LIBMTP_file_t *next = item->next;
+        if (item->item_id != object && item->filename && !strcasecmp(item->filename, name)) free_name = 0;
+        LIBMTP_destroy_file_t(item);
+        item = next;
+    }
+    return free_name && !LIBMTP_Get_Errorstack(device);
+}
+
+// Revalidate selected items because each operation opens a fresh USB session.
+static int mutate_file(LIBMTP_mtpdevice_t *device, const char *action, uint32_t object,
+                       uint32_t storage, uint32_t parent, const char *expected_name,
+                       const char *destination) {
+    LIBMTP_file_t *file = LIBMTP_Get_Filemetadata(device, object);
+    if (!file) return 1;
+    int result = 1;
+    if (!cancelled && file->filetype != LIBMTP_FILETYPE_FOLDER && file->storage_id == storage
+        && normalize_parent(file->parent_id) == parent && file->filename
+        && !strcmp(file->filename, expected_name)) {
+        uint32_t folder;
+        if (!strcmp(action, "delete")) {
+            result = LIBMTP_Delete_Object(device, object);
+        } else if (!strcmp(action, "rename") && destination && valid_name(destination)
+                   && destination_available(device, storage, parent, object, destination)) {
+            if (!cancelled) result = LIBMTP_Set_File_Name(device, file, destination);
+        } else if (!strcmp(action, "move") && destination && parse_id(destination, &folder)
+                   && LIBMTP_Check_Capability(device, LIBMTP_DEVICECAP_MoveObject)
+                   && destination_available(device, storage, folder, object, file->filename)) {
+            if (!cancelled) result = folder == parent ? 0 : LIBMTP_Move_Object(
+                device, object, storage, folder == LIBMTP_FILES_AND_FOLDERS_ROOT ? 0 : folder);
+        }
+    }
+    LIBMTP_destroy_file_t(file);
+    return result == 0 ? 0 : 1;
+}
+
 static int run_command(LIBMTP_mtpdevice_t *device, int argc, char **argv) {
     uint32_t storage, folder, object;
+    if (((argc == 7 && !strcmp(argv[1], "delete"))
+         || (argc == 8 && (!strcmp(argv[1], "rename") || !strcmp(argv[1], "move"))))
+        && parse_id(argv[3], &object) && parse_id(argv[4], &storage) && parse_id(argv[5], &folder))
+        return mutate_file(device, argv[1], object, storage, folder, argv[6], argc == 8 ? argv[7] : NULL);
     if (argc == 3 && !strcmp(argv[1], "storages")) return list_storage(device);
     if (argc == 5 && !strcmp(argv[1], "list") && parse_id(argv[3], &storage) && parse_id(argv[4], &folder))
         return list_folder(device, storage, folder);

@@ -47,6 +47,8 @@ Covers for Firefox-based browsers are off until you turn on Find covers for Fire
 
 ## Network connections
 
+The optional LocalSend Developer helper announces a temporary device identity and exchanges discovery messages on the local network only while its window is active. Outgoing files are sent to the selected TLS peer. Incoming transfers require approval and are staged in a private subdirectory of the chosen folder. Quick Share uses the installed NearDrop app and its permissions.
+
 Vorssaint opens only a few kinds of connection, and each one belongs to a visible feature.
 
 1. **The update check, automatic and easy to switch off.** So it can tell you when a newer version exists, Vorssaint asks GitHub's public releases API at `api.github.com` for this project's latest release. The request carries only a standard user agent with the app name and its version, and no account, identifier or usage data go along with it. It runs a short while after launch and now and then while the app is open. You can turn it off in Settings under About, and once it is off no update requests are made. If you choose to install an offered update, the disk image comes from GitHub.

@@ -167,7 +167,23 @@ struct MetricDetailView: View {
             if kind == .connectedDevices && !monitor.snapshot.usbPorts.isEmpty {
                 cableDetailsCard
             }
+            if kind == .connectedDevices && !monitor.snapshot.thunderboltRouters.isEmpty {
+                thunderboltCard
+            }
+            if kind == .connectedDevices,
+               let nearDrop = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "me.grishka.NearDrop") {
+                Button { NSWorkspace.shared.openApplication(at: nearDrop, configuration: .init()) } label: {
+                    Label("Open Quick Share Receiver", systemImage: "arrow.down.circle")
+                }
+                .panelCard()
+            }
 #if VORSSAINT_DEVELOPMENT
+            if kind == .connectedDevices && LocalSendWindow.available {
+                Button { LocalSendWindow.shared.show() } label: {
+                    Label("Receive with LocalSend", systemImage: "point.3.connected.trianglepath.dotted")
+                }
+                .panelCard()
+            }
             if kind == .connectedDevices && AndroidTransferWindow.available {
                 Button { AndroidTransferWindow.shared.show() } label: {
                     Label("Android File Transfer", systemImage: "cable.connector")
@@ -406,6 +422,38 @@ struct MetricDetailView: View {
             Text(strings.cableDetails).font(.callout.weight(.medium))
         }
         .panelCard()
+    }
+
+    private var thunderboltCard: some View {
+        let readings = monitor.snapshot.thunderboltRouters
+        let ids = Set(readings.map(\.id))
+        let roots = readings.filter { $0.parent.map { !ids.contains($0) } ?? true }
+        return DisclosureGroup {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(roots) { root in
+                    thunderboltBranch(root, readings: readings, visited: [])
+                }
+            }
+            .padding(.top, 6)
+        } label: {
+            Label("Thunderbolt / USB4", systemImage: "bolt")
+                .font(.callout.weight(.medium))
+        }
+        .panelCard()
+    }
+
+    private func thunderboltBranch(_ router: ThunderboltRouterReading, readings: [ThunderboltRouterReading],
+                                   visited: Set<UInt64>) -> AnyView {
+        guard !visited.contains(router.id), visited.count < 12 else { return AnyView(EmptyView()) }
+        let children = readings.filter { $0.parent == router.id }
+        return AnyView(VStack(alignment: .leading, spacing: 6) {
+            Label(router.name ?? "Thunderbolt / USB4", systemImage: "cable.connector")
+                .font(.caption).lineLimit(2)
+            ForEach(children) { child in
+                thunderboltBranch(child, readings: readings, visited: visited.union([router.id]))
+                    .padding(.leading, 10)
+            }
+        })
     }
 
     private func cableRating(_ reading: USBCableReading?) -> [String] {

@@ -72,6 +72,8 @@
 	<string>Vorssaint organizes confirmed WhatsApp downloads in a destination folder you explicitly choose. The Cleaner also looks for forgotten screenshots when you save screenshots here.</string>
 	<key>NSDocumentsFolderUsageDescription</key>
 	<string>Vorssaint organizes confirmed WhatsApp downloads in a destination folder you explicitly choose. The Cleaner also looks for forgotten screenshots when you save screenshots here.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Find nearby LocalSend devices and transfer the files you choose on your local network.</string>
 	<key>NSNetworkVolumesUsageDescription</key>
 	<string>Vorssaint organizes confirmed WhatsApp downloads in a destination folder you explicitly choose. The Cleaner also looks for forgotten screenshots when you save screenshots here.</string>
 	<key>NSRemovableVolumesUsageDescription</key>

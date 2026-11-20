@@ -708,12 +708,26 @@ mkdir -p "$STAGE/Contents/MacOS" "$STAGE/Contents/Resources" \
     "$STAGE/Contents/Library/LaunchDaemons" "$STAGE/Contents/Library/LaunchServices"
 cp "build/$EXECUTABLE" "$STAGE/Contents/MacOS/$EXECUTABLE"
 if (( DEV )) && [[ "${VORSSAINT_DEV_MTP:-0}" == 1 ]]; then
-    mtp_library="$(pkg-config --variable=libdir libmtp)/libmtp.a"
-    usb_library="$(pkg-config --variable=libdir libusb-1.0)/libusb-1.0.a"
+    mtp_library="$(pkg-config --variable=libdir libmtp)/libmtp"
+    usb_library="$(pkg-config --variable=libdir libusb-1.0)/libusb-1.0"
     mtp_headers="$(pkg-config --variable=includedir libmtp)"
+    if [[ "${VORSSAINT_DEV_MTP_LINK:-static}" == system ]]; then
+        # Shared preview artifacts use the recipient's installed Homebrew library.
+        mtp_libraries=("$mtp_library.dylib")
+    else
+        mtp_libraries=("$mtp_library.a" "$usb_library.a")
+    fi
     clang -Wall -Wextra -Werror -I "$mtp_headers" Sources/AndroidMTPHelper/main.c \
-        "$mtp_library" "$usb_library" -liconv -framework IOKit -framework CoreFoundation -framework Security \
+        "${mtp_libraries[@]}" -liconv -framework IOKit -framework CoreFoundation -framework Security \
         -o "$STAGE/Contents/MacOS/vorssaint-mtp"
+fi
+if (( DEV )) && [[ "${VORSSAINT_DEV_LOCALSEND:-0}" == 1 ]]; then
+    ./Tools/prepare-localsend.sh
+    localsend_target="$PWD/build/localsend"
+    CARGO_TARGET_DIR="$localsend_target" MACOSX_DEPLOYMENT_TARGET=14.0 \
+        cargo +1.97.1 build --locked --manifest-path Sources/LocalSendHelper/Cargo.toml
+    cp "$localsend_target/debug/vorssaint-localsend" "$STAGE/Contents/MacOS/vorssaint-localsend"
+    cp Sources/LocalSendHelper/upstream/LICENSE "$STAGE/Contents/Resources/LocalSend-LICENSE.txt"
 fi
 cp "build/$FAN_HELPER_ID" "$STAGE/Contents/Library/LaunchServices/$FAN_HELPER_ID"
 mkdir -p "$STAGE/Contents/Frameworks"
@@ -844,6 +858,7 @@ sign_bundle() {
     [[ -f "$helper" ]] && codesign_fan_helper "$helper"
     [[ -f "$adapter" ]] && codesign_now_playing_adapter "$adapter"
     [[ -f "$bundle/Contents/MacOS/vorssaint-mtp" ]] && codesign_fan_helper "$bundle/Contents/MacOS/vorssaint-mtp" "com.vorssaint.utils.mtp"
+    [[ -f "$bundle/Contents/MacOS/vorssaint-localsend" ]] && codesign_fan_helper "$bundle/Contents/MacOS/vorssaint-localsend" "com.vorssaint.utils.localsend"
     codesign_app "$bundle"
 
     # If local filesystem metadata invalidates the first signature, sign once
@@ -854,6 +869,7 @@ sign_bundle() {
         [[ -f "$helper" ]] && codesign_fan_helper "$helper"
         [[ -f "$adapter" ]] && codesign_now_playing_adapter "$adapter"
         [[ -f "$bundle/Contents/MacOS/vorssaint-mtp" ]] && codesign_fan_helper "$bundle/Contents/MacOS/vorssaint-mtp" "com.vorssaint.utils.mtp"
+        [[ -f "$bundle/Contents/MacOS/vorssaint-localsend" ]] && codesign_fan_helper "$bundle/Contents/MacOS/vorssaint-localsend" "com.vorssaint.utils.localsend"
         codesign_app "$bundle"
     fi
     [[ -f "$executable" ]] && codesign --verify --strict "$executable"

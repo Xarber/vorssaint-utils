@@ -71,6 +71,8 @@ private struct AndroidTransferEntry: Identifiable {
 
 private final class AndroidTransferBrowser: ObservableObject {
     @Published private(set) var entries: [AndroidTransferEntry] = []
+    @Published var selection = Set<String>()
+    @Published private(set) var moveCount = 0
     @Published private(set) var folders: [AndroidTransferEntry] = []
     @Published private(set) var storage: AndroidTransferEntry?
     @Published private(set) var device: AndroidTransferEntry?
@@ -79,6 +81,11 @@ private final class AndroidTransferBrowser: ObservableObject {
     @Published private(set) var progress: Double?
     private let helper: URL
     private var process: Process?
+    private var pendingMove: (ids: [AndroidTransferEntry], parent: String, storage: String)?
+    private var parentID: String { folders.last?.id ?? String(UInt32.max) }
+    var selectedFiles: [AndroidTransferEntry] {
+        entries.filter { selection.contains($0.id) && !$0.folder && $0.safeFilename }
+    }
     private var cancelled = false
 
     init(helper: URL) { self.helper = helper }
@@ -86,11 +93,11 @@ private final class AndroidTransferBrowser: ObservableObject {
     func refresh() {
         let arguments: [String]
         if let storage, let device {
-            arguments = ["list", device.id, storage.id, folders.last?.id ?? String(UInt32.max)]
+            arguments = ["list", device.id, storage.id, parentID]
         } else if let device {
             arguments = ["storages", device.id]
         } else { arguments = ["devices"] }
-        run(arguments) { [weak self] data in
+        run(arguments, preserveMessage: true) { [weak self] data in
             self?.entries = String(decoding: data, as: UTF8.self).split(separator: "\n")
                 .compactMap(AndroidTransferEntry.init)
                 .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
@@ -103,52 +110,141 @@ private final class AndroidTransferBrowser: ObservableObject {
         else if storage == nil { storage = entry }
         else { folders.append(entry) }
         entries = []
+        selection.removeAll()
         refresh()
     }
 
     func back() {
         guard !busy else { return }
         if !folders.isEmpty { folders.removeLast() }
-        else if storage != nil { storage = nil }
+        else if storage != nil { storage = nil; cancelMove() }
         else { device = nil }
         entries = []
+        selection.removeAll()
         refresh()
     }
 
-    func download(_ entry: AndroidTransferEntry) {
-        guard let device, entry.safeFilename else { return }
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = entry.name
-        guard panel.runModal() == .OK, let destination = panel.url else { return }
-        // Stage on the destination volume and publish exclusively. A file
-        // that appeared while the transfer was running keeps its contents.
-        let directory = destination.deletingLastPathComponent()
-            .appendingPathComponent(".vorssaint-\(UUID().uuidString)", isDirectory: true)
+    func download(_ files: [AndroidTransferEntry]) {
+        guard let device, !files.isEmpty, files.allSatisfy(\.safeFilename) else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.prompt = "Save Copies"
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        let directory = folder.appendingPathComponent(".vorssaint-\(UUID().uuidString)", isDirectory: true)
         guard PrivateFileStore.createDirectory(at: directory, container: directory) else {
             message = "Couldn’t prepare the destination."
             return
         }
-        let temporary = directory.appendingPathComponent("download")
-        run(["get", device.id, entry.id, temporary.path], cleanup: {
-            try? FileManager.default.removeItem(at: directory)
-        }) { [weak self] _ in
-            let result = temporary.withUnsafeFileSystemRepresentation { source in
-                destination.withUnsafeFileSystemRepresentation { target in
-                    renamex_np(source, target, UInt32(RENAME_EXCL))
+        let jobs = files.enumerated().map { index, file in
+            let temporary = directory.appendingPathComponent(String(index))
+            let destination = folder.appendingPathComponent(file.name)
+            return Job(arguments: ["get", device.id, file.id, temporary.path]) {
+                temporary.withUnsafeFileSystemRepresentation { source in
+                    destination.withUnsafeFileSystemRepresentation { target in
+                        renamex_np(source, target, UInt32(RENAME_EXCL)) == 0
+                    }
                 }
             }
-            self?.message = result == 0 ? "File copied." : "Couldn’t save the file. Choose an unused filename."
+        }
+        runBatch(jobs) { [weak self] completed, outcome in
+            try? FileManager.default.removeItem(at: directory)
+            self?.showBatchResult(completed, total: files.count, outcome: outcome)
+            if outcome == .success { NSWorkspace.shared.activateFileViewerSelecting([folder]) }
         }
     }
 
     func upload() {
         guard let device, let storage else { return }
         let panel = NSOpenPanel()
-        guard panel.runModal() == .OK, let file = panel.url else { return }
-        run(["put", device.id, storage.id, folders.last?.id ?? String(UInt32.max),
-             file.path, file.lastPathComponent]) { [weak self] _ in
+        panel.allowsMultipleSelection = true
+        guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
+        let jobs = panel.urls.map { Job(arguments: ["put", device.id, storage.id, parentID,
+                                                    $0.path, $0.lastPathComponent]) }
+        performRemote(jobs)
+    }
+
+    func rename() {
+        guard let device, let storage, selectedFiles.count == 1, let file = selectedFiles.first else { return }
+        let field = NSTextField(string: file.name)
+        field.frame.size.width = 280
+        let alert = NSAlert()
+        alert.messageText = "Rename file on Android"
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+        alert.addButton(withTitle: "Rename")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn, field.stringValue != file.name else { return }
+        performRemote([Job(arguments: ["rename", device.id, file.id, storage.id, parentID,
+                                       file.name, field.stringValue])])
+    }
+
+    func deleteSelection() {
+        guard let device, let storage, !selectedFiles.isEmpty else { return }
+        let files = selectedFiles
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Permanently delete selected files?"
+        alert.informativeText = "Android File Transfer can’t restore these files from the Trash."
+        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "Delete")
+        guard alert.runModal() == .alertSecondButtonReturn else { return }
+        performRemote(files.map { Job(arguments: ["delete", device.id, $0.id, storage.id, parentID, $0.name]) })
+    }
+
+    func selectForMove() {
+        guard let storage, !selectedFiles.isEmpty else { return }
+        pendingMove = (selectedFiles, parentID, storage.id)
+        moveCount = selectedFiles.count
+    }
+
+    func moveHere() {
+        guard let device, let pendingMove, pendingMove.storage == storage?.id, pendingMove.parent != parentID else { return }
+        cancelMove()
+        performRemote(pendingMove.ids.map { Job(arguments: [
+            "move", device.id, $0.id, pendingMove.storage, pendingMove.parent, $0.name, parentID
+        ]) })
+    }
+
+    func cancelMove() {
+        pendingMove = nil
+        moveCount = 0
+    }
+
+    var canMoveHere: Bool { pendingMove.map { $0.parent != parentID && $0.storage == storage?.id } == true }
+
+    private struct Job {
+        let arguments: [String]
+        var publish: () -> Bool = { true }
+    }
+
+    private enum BatchOutcome { case success, failed, cancelled }
+
+    private func performRemote(_ jobs: [Job]) {
+        runBatch(jobs) { [weak self] completed, outcome in
+            self?.selection.removeAll()
+            self?.showBatchResult(completed, total: jobs.count, outcome: outcome)
             self?.refresh()
         }
+    }
+
+    private func showBatchResult(_ completed: Int, total: Int, outcome: BatchOutcome) {
+        switch outcome {
+        case .success: message = "Completed \(completed) of \(total)."
+        case .failed: message = "Stopped after \(completed) of \(total). Check the connection and destination names."
+        case .cancelled: message = "Cancelled after \(completed) of \(total)."
+        }
+    }
+
+    private func runBatch(_ jobs: [Job], completion: @escaping (Int, BatchOutcome) -> Void) {
+        func next(_ remaining: ArraySlice<Job>, completed: Int) {
+            guard let job = remaining.first else { completion(completed, .success); return }
+            run(job.arguments, onFailure: { completion(completed, $0) }) { _ in
+                guard job.publish() else { completion(completed, .failed); return }
+                next(remaining.dropFirst(), completed: completed + 1)
+            }
+        }
+        next(jobs[...], completed: 0)
     }
 
     func cancel() {
@@ -157,8 +253,9 @@ private final class AndroidTransferBrowser: ObservableObject {
         if process.isRunning { process.interrupt() }
     }
 
-    private func run(_ arguments: [String], cleanup: (() -> Void)? = nil, completion: @escaping (Data) -> Void) {
-        guard !busy else { cleanup?(); return }
+    private func run(_ arguments: [String], preserveMessage: Bool = false,
+                     onFailure: ((BatchOutcome) -> Void)? = nil, completion: @escaping (Data) -> Void) {
+        guard !busy else { onFailure?(.failed); return }
         let process = Process()
         process.executableURL = helper
         process.arguments = arguments
@@ -183,13 +280,13 @@ private final class AndroidTransferBrowser: ObservableObject {
         catch {
             progressHandle.readabilityHandler = nil
             message = "Couldn’t start Android File Transfer."
-            cleanup?()
+            onFailure?(.failed)
             return
         }
         self.process = process
         cancelled = false
         busy = true
-        message = ""
+        if !preserveMessage { message = "" }
         progress = nil
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let data = output.fileHandleForReading.readDataToEndOfFile()
@@ -197,13 +294,17 @@ private final class AndroidTransferBrowser: ObservableObject {
             let status = process.terminationStatus
             progressHandle.readabilityHandler = nil
             DispatchQueue.main.async { [weak self] in
-                defer { cleanup?() }
                 guard let self else { return }
                 self.busy = false
                 self.process = nil
-                if self.cancelled { self.message = "Cancelled."; return }
+                if self.cancelled {
+                    self.message = "Cancelled."
+                    onFailure?(.cancelled)
+                    return
+                }
                 guard status == 0 else {
                     self.message = "Android File Transfer couldn’t complete. Check USB File Transfer mode and try again."
+                    onFailure?(.failed)
                     return
                 }
                 completion(data)
@@ -234,7 +335,7 @@ private struct AndroidTransferView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(browser.entries) { entry in
+                List(browser.entries, selection: $browser.selection) { entry in
                     HStack {
                         Label(entry.name, systemImage: entry.folder ? "folder" : "doc")
                             .lineLimit(1).truncationMode(.middle)
@@ -242,12 +343,29 @@ private struct AndroidTransferView: View {
                         if entry.folder {
                             Button("Open") { browser.open(entry) }
                         } else {
-                            Button("Save a Copy") { browser.download(entry) }
+                            Button("Save a Copy") { browser.download([entry]) }
                                 .disabled(!entry.safeFilename)
                         }
                     }
                 }
                 .disabled(browser.busy)
+            }
+            if !browser.busy, browser.storage != nil {
+                HStack {
+                    Button("Save Copies") { browser.download(browser.selectedFiles) }
+                        .disabled(browser.selectedFiles.isEmpty)
+                    Menu("Manage Files") {
+                        Button("Rename…", action: browser.rename).disabled(browser.selectedFiles.count != 1)
+                        Button("Select for Move", action: browser.selectForMove).disabled(browser.selectedFiles.isEmpty)
+                        Button("Delete…", role: .destructive, action: browser.deleteSelection)
+                            .disabled(browser.selectedFiles.isEmpty)
+                    }
+                    Spacer()
+                    if browser.moveCount > 0 {
+                        Button("Cancel Move", action: browser.cancelMove)
+                        Button("Move Here", action: browser.moveHere).disabled(!browser.canMoveHere)
+                    }
+                }
             }
             if browser.busy {
                 HStack {

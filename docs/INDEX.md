@@ -5,6 +5,7 @@ Vorssaint is a SwiftUI and AppKit utility for Apple Silicon Macs running macOS 1
 - [Contributor guide](../CONTRIBUTING.md) for development, verification, signing, and release workflows.
 - [Active task queue](ACTIVE_TASKS.md) for feature scope, dependencies, and verification status.
 - [Permissions](PERMISSIONS.md), [privacy](PRIVACY.md), and [security reporting](../SECURITY.md).
+- [Nearby sharing](features/NEARBY_SHARING.md) and [Developer preview builds](features/DEVELOPER_PREVIEW.md).
 - [Troubleshooting](TROUBLESHOOTING.md) and [verification reports](reports/INTEGRATION_CHECKS.md).
 
 ## Source map

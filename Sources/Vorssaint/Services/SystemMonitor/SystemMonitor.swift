@@ -69,6 +69,7 @@ struct SystemSnapshot {
     // Connected USB Devices
     var connectedDevices: [ConnectedUSBDevice] = []
     var usbPorts: [USBPortReading] = []
+    var thunderboltRouters: [ThunderboltRouterReading] = []
 
     // History (oldest → newest) for the graphs
     var cpuHistory: [Double] = []          // 0...1
@@ -214,6 +215,7 @@ final class SystemMonitor: ObservableObject {
     private var peripheralSampleDue = false
     private var lastConnectedDevices: [ConnectedUSBDevice] = []
     private var lastUSBPorts: [USBPortReading]?
+    private var lastThunderboltRouters: [ThunderboltRouterReading] = []
     private var lastPublishedPlan: SamplingPlan?
     private var lastPublishedForeground: Bool?
 
@@ -960,11 +962,18 @@ final class SystemMonitor: ObservableObject {
                 }
                 next.connectedDevices = self.lastConnectedDevices
                 if cableDetailsVisible {
-                    if refresh || self.lastUSBPorts == nil { self.lastUSBPorts = USBCableSampler.sample() }
+                    if refresh || self.lastUSBPorts == nil {
+                        self.lastUSBPorts = USBCableSampler.sample()
+                        self.lastThunderboltRouters = USBCableSampler.thunderboltRouters()
+                    }
                     next.usbPorts = self.lastUSBPorts ?? []
+                    next.thunderboltRouters = self.lastThunderboltRouters
                 }
             }
-            if !cableDetailsVisible || !plan.needConnectedDevices { self.lastUSBPorts = nil }
+            if !cableDetailsVisible || !plan.needConnectedDevices {
+                self.lastUSBPorts = nil
+                self.lastThunderboltRouters = []
+            }
 
             next.cpuHistory = plan.needCPU
                 ? self.cpuHistory.publishedValues(whileVisible: foregroundSampling) : []

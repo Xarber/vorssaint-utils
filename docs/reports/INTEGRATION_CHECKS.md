@@ -18,3 +18,11 @@ Testing took place on the local Apple Silicon Mac using the macOS 26 SDK and the
 The initial Notch check overlapped a source edit and Swift rejected the changed input. It passed when rerun with stable source files. The Shelf runner emitted macOS sandbox-extension messages and still passed all assertions. A direct cable-sampler invocation completed with zero reportable USB-C records on the connected setup. No full application build or release has been run.
 
 For Android helper validation, Homebrew installed `libmtp` 1.1.23 alongside the existing `libusb`. Running the initial Cargo check under the upstream LocalSend checkout also caused Rustup to install the toolchain version specified there, 1.97.1. The Cargo check and targeted tests used that installed toolchain.
+
+
+## Upstream sync and preview update
+
+- The fork’s `main` fast-forwarded 22 upstream commits to `faada18d`. The integration merge retains both the AirDrop destination and upstream media-workspace drops.
+- The Shelf, Metrics, Pointer Input and Linear Scroll test suites passed 2,356 assertions after this update. The operator-facing Android file manager and transfer helper were type-checked and compiled locally. No physical Android device was available for mutation or transfer verification.
+- The LocalSend helper passed two tests, including a TLS-pinned transfer to a loopback peer that requested and accepted a real file. Physical LAN discovery and mobile-client interoperability are pending.
+- The Thunderbolt router sampler compiled against the macOS 26 SDK. There is no connected-dock verification of its topology.

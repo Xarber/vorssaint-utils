@@ -1,0 +1,70 @@
+name: Developer preview
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'vorssaint-preview-*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: developer-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  developer-preview:
+    if: github.repository == 'Xarber/vorssaint-utils'
+    runs-on: macos-26
+    timeout-minutes: 40
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1a # v7
+        with:
+          persist-credentials: false
+
+      - name: Install host libraries for the optional MTP helper
+        run: brew install libmtp
+
+      - name: Prepare pinned LocalSend toolchain and run helper tests
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          ./Tools/prepare-localsend.sh
+          CARGO_TARGET_DIR="$PWD/build/localsend" cargo +1.97.1 test --locked --manifest-path Sources/LocalSendHelper/Cargo.toml
+
+      - name: Build Developer app
+        env:
+          VORSSAINT_DEV_MTP: '1'
+          VORSSAINT_DEV_LOCALSEND: '1'
+          VORSSAINT_DEV_MTP_LINK: system
+        run: ./build.sh --dev
+
+      - name: Validate the app and helper
+        run: |
+          set -euo pipefail
+          app='build/stage.noindex/Vorssaint (Developer).app'
+          codesign --verify --deep --strict "$app"
+          "$app/Contents/MacOS/VorssaintDeveloper" --selftest
+          "$app/Contents/MacOS/vorssaint-mtp" devices
+          test -x "$app/Contents/MacOS/vorssaint-localsend"
+          ./build.sh --test-suite=shelf --test-suite=metrics --test-suite=pointer-input --test-suite=linear-scroll
+
+      - name: Package verified Developer app
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          ditto -c -k --keepParent 'build/stage.noindex/Vorssaint (Developer).app' dist/Vorssaint-Developer.app.zip
+          cd dist
+          shasum -a 256 Vorssaint-Developer.app.zip > SHA256SUMS
+          printf '%s\n' "$GITHUB_SHA" > SOURCE_COMMIT.txt
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: Vorssaint-Developer-macOS-arm64-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7

@@ -33,6 +33,20 @@ final class ShelfSharePresenter: NSObject, NSSharingServicePickerDelegate {
         return true
     }
 
+#if VORSSAINT_DEVELOPMENT
+    func sharingServicePicker(_ picker: NSSharingServicePicker, sharingServicesForItems items: [Any],
+                              proposedSharingServices proposed: [NSSharingService]) -> [NSSharingService] {
+        let files = items.compactMap { $0 as? URL }.filter(\.isFileURL)
+        guard LocalSendWindow.available, !files.isEmpty, files.count == items.count,
+              let icon = NSImage(systemSymbolName: "point.3.connected.trianglepath.dotted",
+                                 accessibilityDescription: "LocalSend") else { return proposed }
+        let localSend = NSSharingService(title: "LocalSend", image: icon, alternateImage: nil) {
+            DispatchQueue.main.async { LocalSendWindow.shared.show(files) }
+        }
+        return proposed + [localSend]
+    }
+#endif
+
     func sharingServicePicker(_ sharingServicePicker: NSSharingServicePicker,
                               didChoose service: NSSharingService?) {
         // A late answer from a menu that was already replaced must not take
