@@ -95,6 +95,7 @@ enum DefaultsKey {
     static let linearScrollExceptions = "linearScrollExceptions"
     static let scrollSpeedExceptions = "scrollSpeedExceptions"
     static let scrollInverterExceptions = "scrollInverterExceptions"
+    static let scrollDirectionProfiles = "scrollDirectionProfiles"
     static let mouseNavigationExceptions = "mouseNavigationExceptions"
     static let mouseButtonExceptions = "mouseButtonExceptions"
     static let middleClickExceptions = "middleClickExceptions"
@@ -1302,6 +1303,7 @@ enum Defaults {
         DefaultsKey.linearScrollExceptions: [String](),
         DefaultsKey.scrollSpeedExceptions: [String](),
         DefaultsKey.scrollInverterExceptions: [String](),
+        DefaultsKey.scrollDirectionProfiles: [String: String](),
         DefaultsKey.focusFollowsMouseExceptions: [String](),
         DefaultsKey.mouseNavigationExceptions: [String](),
         DefaultsKey.mouseButtonExceptions: [String](),

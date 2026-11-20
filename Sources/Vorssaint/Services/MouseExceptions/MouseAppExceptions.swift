@@ -35,6 +35,8 @@ final class MouseAppExceptions: ObservableObject {
 
     /// The stored lists, as bundle identifiers per feature.
     @Published private(set) var lists: [MouseExceptionScope: [String]] = [:]
+    @Published private(set) var scrollProfiles: [String: MouseScrollDirectionProfile] = [:]
+    private var profileLookup: [String: MouseScrollDirectionProfile] = [:]
     @Published private(set) var runningScopes = Set<MouseExceptionScope>()
 
     /// The same lists as sets, for the lookups the taps make. Under `lock`.
@@ -90,8 +92,13 @@ final class MouseAppExceptions: ObservableObject {
             lists[scope] = sanitized
             lock.withLock { lookups[scope] = Set(sanitized) }
         }
+        let storedProfiles = defaults.dictionary(forKey: DefaultsKey.scrollDirectionProfiles) as? [String: String] ?? [:]
+        scrollProfiles = storedProfiles
+            .filter { !$0.key.isEmpty && !MouseAppExceptionSupport.isExecutablePathIdentity($0.key) }
+            .compactMapValues { MouseScrollDirectionProfile(storage: $0) }
         lock.withLock {
-            allEmpty = lookups.values.allSatisfy(\.isEmpty)
+            profileLookup = scrollProfiles.filter { $0.value.overridesDirection }
+            allEmpty = profileLookup.isEmpty && lookups.values.allSatisfy(\.isEmpty)
             listsNamePath = lookups.values.contains {
                 $0.contains(where: MouseAppExceptionSupport.isExecutablePathIdentity)
             }
@@ -101,6 +108,27 @@ final class MouseAppExceptions: ObservableObject {
     }
 
     func list(_ scope: MouseExceptionScope) -> [String] { lists[scope] ?? [] }
+
+    var scrollProfilesNeedTap: Bool {
+        lock.withLock { profileLookup.values.contains(where: \.needsActiveTap) }
+    }
+
+    func setScrollProfile(_ profile: MouseScrollDirectionProfile?, for bundleID: String) {
+        var profiles = scrollProfiles
+        profiles[bundleID] = profile
+        UserDefaults.standard.set(profiles.mapValues(\.storage), forKey: DefaultsKey.scrollDirectionProfiles)
+        reload()
+    }
+
+    func scrollProfile(at point: CGPoint) -> MouseScrollDirectionProfile? {
+        guard lock.withLock({ !profileLookup.isEmpty }) else { return nil }
+        let resolved = pointerIdentity(at: point)
+        guard resolved.known else { return nil }
+        return lock.withLock {
+            resolved.identities.lazy.compactMap { self.profileLookup[$0] }.first
+        }
+    }
+
 
     /// The lists and source ids a tap needs, copied out under the lock.
     private func lookup(_ scope: MouseExceptionScope) -> (exceptions: Set<String>, sources: Set<Int32>) {

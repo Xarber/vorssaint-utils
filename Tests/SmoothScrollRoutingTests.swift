@@ -12,6 +12,10 @@ enum SmoothScrollRoutingTests {
     enum DefaultsStore { static var standard = Foundation.UserDefaults() }
     final class Exceptions {
         static let shared = Exceptions()
+        var directionProfile: MouseScrollDirectionProfile?
+        var scrollProfilesNeedTap: Bool { directionProfile?.needsActiveTap == true }
+        func scrollProfile(at point: CGPoint) -> MouseScrollDirectionProfile? { directionProfile }
+        func reload() {}
         var scopes = Set<MouseExceptionScope>()
         func excludesPointerTarget(_ scope: MouseExceptionScope, at point: CGPoint,
                                    sourceProcessID: Int64 = 0) -> Bool { scopes.contains(scope) }

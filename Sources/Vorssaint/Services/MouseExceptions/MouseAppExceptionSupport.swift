@@ -50,6 +50,38 @@ enum MouseExceptionScope: String, CaseIterable {
     }
 }
 
+struct MouseScrollDirectionProfile: Equatable {
+    enum Direction: String, CaseIterable {
+        case inherited, system, reversed
+
+        func effective(_ base: Bool) -> Bool {
+            switch self {
+            case .inherited: return base
+            case .system: return false
+            case .reversed: return true
+            }
+        }
+    }
+
+    var vertical: Direction = .inherited
+    var horizontal: Direction = .inherited
+
+    init() {}
+
+    init?(storage: String) {
+        let fields = storage.split(separator: ",")
+        guard fields.count == 2,
+              let vertical = Direction(rawValue: String(fields[0])),
+              let horizontal = Direction(rawValue: String(fields[1])) else { return nil }
+        self.vertical = vertical
+        self.horizontal = horizontal
+    }
+
+    var storage: String { "\(vertical.rawValue),\(horizontal.rawValue)" }
+    var needsActiveTap: Bool { vertical == .reversed || horizontal == .reversed }
+    var overridesDirection: Bool { vertical != .inherited || horizontal != .inherited }
+}
+
 /// The pure half of the mouse exceptions: which window answers for the app
 /// being used, and how long an answer may be reused before the window server
 /// is asked again.

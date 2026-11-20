@@ -10,6 +10,7 @@ struct MouseSettings: View {
     @ObservedObject private var features = FeatureRuntime.shared
     @ObservedObject private var permissions = Permissions.shared
     @ObservedObject private var inverter = ScrollInverter.shared
+    @ObservedObject private var appOverrides = MouseAppExceptions.shared
     @ObservedObject private var smoothScroll = SmoothScrollService.shared
     @ObservedObject private var mouseNavigation = MouseNavigationService.shared
     @ObservedObject private var middleClick = MiddleClickService.shared
@@ -229,6 +230,9 @@ struct MouseSettings: View {
                         .padding(.leading, settingsRowTextInset)
                 }
             }
+            if AppFeature.scrollInverter.isAvailable {
+                scrollProfiles
+            }
             if scrollInversionEnabled, inverter.isRunning {
                 activeBadge(l10n.s.scrollActiveNow)
             }
@@ -240,6 +244,50 @@ struct MouseSettings: View {
                 MouseExceptionsList(scope: .scrollDirection)
             }
         }
+    }
+
+    private var scrollProfiles: some View {
+        let text = FeatureStrings.mouseScrollProfiles(l10n.language)
+        let appList = FeatureStrings.mouseExceptions(l10n.language)
+        return AppBundleList(title: text.title, caption: text.description,
+                             addTitle: appList.addButton, removeLabel: appList.removeButton,
+                             bundleIDs: Array(appOverrides.scrollProfiles.keys), reachesEveryApp: true,
+                             onAdd: { updateScrollProfile(MouseScrollDirectionProfile(), for: $0) },
+                             onRemove: { updateScrollProfile(nil, for: $0) }) { id in
+            Menu {
+                Picker(l10n.s.invertVerticalScroll, selection: scrollProfileDirection(id, axis: \.vertical)) {
+                    ForEach(MouseScrollDirectionProfile.Direction.allCases, id: \.self) { value in
+                        Text(text.label(value)).tag(value)
+                    }
+                }
+                Picker(l10n.s.invertHorizontalScroll, selection: scrollProfileDirection(id, axis: \.horizontal)) {
+                    ForEach(MouseScrollDirectionProfile.Direction.allCases, id: \.self) { value in
+                        Text(text.label(value)).tag(value)
+                    }
+                }
+            } label: {
+                Label(text.edit, systemImage: "slider.horizontal.3")
+            }
+            .controlSize(.small)
+        }
+    }
+
+    private func scrollProfileDirection(_ bundleID: String,
+                                        axis: WritableKeyPath<MouseScrollDirectionProfile, MouseScrollDirectionProfile.Direction>)
+        -> Binding<MouseScrollDirectionProfile.Direction> {
+        Binding {
+            appOverrides.scrollProfiles[bundleID]?[keyPath: axis] ?? .inherited
+        } set: { direction in
+            guard var profile = appOverrides.scrollProfiles[bundleID] else { return }
+            profile[keyPath: axis] = direction
+            updateScrollProfile(profile, for: bundleID)
+        }
+    }
+
+    private func updateScrollProfile(_ profile: MouseScrollDirectionProfile?, for bundleID: String) {
+        appOverrides.setScrollProfile(profile, for: bundleID)
+        ScrollInverter.shared.syncWithPreferences()
+        if profile?.needsActiveTap == true { permissions.requestAccessibility() }
     }
 
     private var zoomCard: some View {
@@ -649,7 +697,8 @@ struct MouseSettings: View {
     }
 
     private var scrollInversionEnabled: Bool {
-        AppFeature.scrollInverter.isAvailable && (invertVertical || invertHorizontal)
+        AppFeature.scrollInverter.isAvailable
+            && (invertVertical || invertHorizontal || appOverrides.scrollProfilesNeedTap)
     }
 
     private var scrollDirectionEnabled: Bool {

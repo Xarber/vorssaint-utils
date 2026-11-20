@@ -295,3 +295,133 @@ extension MouseExceptionStrings {
         pausedSuperKey: "Призупинено, поки відкрита вибрана програма"
     )
 }
+
+
+struct MouseScrollProfileStrings {
+    let title: String
+    let description: String
+    let edit: String
+    let inherited: String
+    let system: String
+    let reversed: String
+
+    func label(_ direction: MouseScrollDirectionProfile.Direction) -> String {
+        switch direction {
+        case .inherited: return inherited
+        case .system: return system
+        case .reversed: return reversed
+        }
+    }
+}
+
+extension FeatureStrings {
+    static func mouseScrollProfiles(_ language: AppLanguage) -> MouseScrollProfileStrings {
+        switch language {
+        case .enUS: return MouseScrollProfileStrings(
+            title: "Per-app scroll direction",
+            description: "Each axis can follow Vorssaint’s global setting or use its own direction. App exceptions still apply.",
+            edit: "Edit",
+            inherited: "Use global setting",
+            system: "Use macOS direction",
+            reversed: "Reverse")
+        case .ptBR: return MouseScrollProfileStrings(
+            title: "Direção de rolagem por app",
+            description: "Cada eixo pode seguir o ajuste global ou ter uma direção própria. As exceções continuam valendo.",
+            edit: "Editar",
+            inherited: "Usar ajuste global",
+            system: "Usar direção do macOS",
+            reversed: "Inverter")
+        case .tr: return MouseScrollProfileStrings(
+            title: "Uygulamaya göre kaydırma yönü",
+            description: "Her eksen genel ayarı izleyebilir veya kendi yönünü kullanabilir. Uygulama istisnaları geçerlidir.",
+            edit: "Düzenle",
+            inherited: "Genel ayarı kullan",
+            system: "macOS yönünü kullan",
+            reversed: "Tersine çevir")
+        case .ru: return MouseScrollProfileStrings(
+            title: "Направление прокрутки для приложений",
+            description: "Для каждой оси можно задать своё направление. Исключения для приложений сохраняются.",
+            edit: "Изменить",
+            inherited: "Общая настройка",
+            system: "Направление macOS",
+            reversed: "Инвертировать")
+        case .es: return MouseScrollProfileStrings(
+            title: "Dirección de desplazamiento por app",
+            description: "Cada eje puede seguir el ajuste global o usar su propia dirección. Las excepciones siguen vigentes.",
+            edit: "Editar",
+            inherited: "Usar ajuste global",
+            system: "Usar dirección de macOS",
+            reversed: "Invertir")
+        case .sk: return MouseScrollProfileStrings(
+            title: "Smer rolovania podľa aplikácie",
+            description: "Každá os môže použiť globálne nastavenie alebo vlastný smer. Výnimky zostávajú v platnosti.",
+            edit: "Upraviť",
+            inherited: "Použiť globálne nastavenie",
+            system: "Použiť smer macOS",
+            reversed: "Obrátiť")
+        case .de: return MouseScrollProfileStrings(
+            title: "Scrollrichtung pro App",
+            description: "Jede Achse kann der globalen Einstellung folgen oder eine eigene Richtung verwenden. App-Ausnahmen gelten weiterhin.",
+            edit: "Bearbeiten",
+            inherited: "Globale Einstellung verwenden",
+            system: "macOS-Richtung verwenden",
+            reversed: "Umkehren")
+        case .fr: return MouseScrollProfileStrings(
+            title: "Sens du défilement par app",
+            description: "Chaque axe peut suivre le réglage global ou avoir son propre sens. Les exceptions restent actives.",
+            edit: "Modifier",
+            inherited: "Utiliser le réglage global",
+            system: "Suivre le sens de macOS",
+            reversed: "Inverser")
+        case .it: return MouseScrollProfileStrings(
+            title: "Direzione di scorrimento per app",
+            description: "Ogni asse può seguire l’impostazione globale o usare una direzione propria. Le eccezioni restano attive.",
+            edit: "Modifica",
+            inherited: "Usa impostazione globale",
+            system: "Usa direzione di macOS",
+            reversed: "Inverti")
+        case .ja: return MouseScrollProfileStrings(
+            title: "アプリ別のスクロール方向",
+            description: "軸ごとに全体設定または個別の方向を選べます。アプリの例外設定は引き続き適用されます。",
+            edit: "編集",
+            inherited: "全体設定を使用",
+            system: "macOSの方向を使用",
+            reversed: "反転")
+        case .ko: return MouseScrollProfileStrings(
+            title: "앱별 스크롤 방향",
+            description: "축마다 전체 설정을 따르거나 개별 방향을 지정할 수 있습니다. 앱 예외는 계속 적용됩니다.",
+            edit: "편집",
+            inherited: "전체 설정 사용",
+            system: "macOS 방향 사용",
+            reversed: "반전")
+        case .uk: return MouseScrollProfileStrings(
+            title: "Напрямок прокручування для програм",
+            description: "Для кожної осі можна вибрати загальне налаштування або власний напрямок. Винятки залишаються чинними.",
+            edit: "Змінити",
+            inherited: "Загальне налаштування",
+            system: "Напрямок macOS",
+            reversed: "Інвертувати")
+        case .zhHans: return MouseScrollProfileStrings(
+            title: "按应用设置滚动方向",
+            description: "每个轴可沿用全局设置或单独设置方向。应用例外仍然适用。",
+            edit: "编辑",
+            inherited: "使用全局设置",
+            system: "使用 macOS 方向",
+            reversed: "反转")
+        case .zhHK: return MouseScrollProfileStrings(
+            title: "按 App 設定捲動方向",
+            description: "每個軸可沿用全域設定或個別設定方向。App 例外仍然適用。",
+            edit: "編輯",
+            inherited: "使用全域設定",
+            system: "使用 macOS 方向",
+            reversed: "反轉")
+        case .zhTW: return MouseScrollProfileStrings(
+            title: "依 App 設定捲動方向",
+            description: "每個軸可沿用全域設定或個別設定方向。App 例外仍然適用。",
+            edit: "編輯",
+            inherited: "使用全域設定",
+            system: "使用 macOS 方向",
+            reversed: "反轉")
+        }
+    }
+}

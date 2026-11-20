@@ -9,7 +9,7 @@ Planning snapshot, 20 November 2026. The checkout is `Xarber/vorssaint-utils`, o
 | VOR-03 | 3 | 2 | In Progress | LocalSend. The upstream Rust core passed its locked discovery-feature type check. Implement consent, HTTPS, discovery, and a native Shelf adapter. |
 | VOR-04 | 4 | 3 | Queued | NearDrop-compatible Quick Share. Protocol and dependency entry points identified. Reuse the transfer interface from VOR-03 and validate both transfer directions over Wi-Fi. |
 | VOR-05 | 5 | 4 | Implemented | Connected Devices has a read-only USB-C details view. The metrics suite passed 573 checks. Verify on real hardware. Thunderbolt/dock topology and broader diagnostics remain open. |
-| VOR-06 | 6 | 5 | Queued | LinearMouse-style per-app settings and additional input controls. Map profiles onto the existing event pipeline and verify the migration. |
+| VOR-06 | 6 | 5 | In Progress | Per-app vertical and horizontal direction implemented and checked in the Pointer Input and Linear Scroll suites. Per-device settings, sensitivity, button profiles, modifier actions, and autoscroll are pending. |
 | VOR-07 | 7 | 6 | In Progress | An opt-in Developer build has native folder browsing and single-file copies backed by libmtp. Helper compilation and no-device handling passed. Validate physical-device transfer, add batch selection, and finish reproducible macOS 14 packaging. |
 
 Implementation proceeds on `test/vorssaint-integrations`. AirDrop went first because its drop routing is also useful to both wireless providers. Cable sampling proceeded independently while upstream transport and dependency contracts were reviewed.
@@ -36,7 +36,7 @@ Keep Shelf as the entry point. Add LocalSend and Quick Share to its Share action
 
 LocalSend uses the documented v2.2 protocol and checks interoperability with distributed LocalSend clients before choosing any shared Rust component. Verify certificate handling against the official implementation, HTTPS behavior, discovery, transfer consent, integrity checks and cancellation. Verify with Android and another supported LocalSend platform. Browser downloads and clipboard mirroring are separate scope. [LocalSend protocol](https://github.com/localsend/protocol) · [LocalSend request #2360](https://github.com/vorssaint/vorssaint-utils/issues/2360)
 
-Quick Share uses NearDrop's same-Wi-Fi LAN behavior. Plan inbound confirmation with the on-screen verification code and outbound QR-assisted discovery where needed. Limit visibility to an explicit receive window. Audit protocol framing, dependencies and cryptography before adoption. Verify both directions with physical Android devices, including Pixel and Samsung where available, plus expired QR, wrong code, peer rejection and disconnect. [NearDrop](https://github.com/grishka/NearDrop)
+Quick Share uses NearDrop's same-Wi-Fi LAN behavior. The inspected upstream snapshot uses Asn1, BigInt, QRCode, and SwiftProtobuf packages. Confirm license, version and minimum-OS compatibility before adoption. Plan inbound confirmation with the on-screen verification code and outbound QR-assisted discovery where needed. Limit visibility to an explicit receive window. Audit protocol framing, dependencies and cryptography before adoption. Verify both directions with physical Android devices, including Pixel and Samsung where available, plus expired QR, wrong code, peer rejection and disconnect. [NearDrop](https://github.com/grishka/NearDrop)
 
 ### VOR-05 · USB-C cable diagnostics
 

@@ -44,7 +44,8 @@ final class ScrollInverter: ObservableObject {
             scrollPhase: event.getIntegerValueField(.scrollWheelEventScrollPhase),
             scrollCount: event.getIntegerValueField(.scrollWheelEventScrollCount)
         )
-        let direction = ScrollDirectionPreferences(defaults: UserDefaults.standard)
+        let direction = ScrollDirectionPreferences(defaults: UserDefaults.standard,
+                                                    profile: MouseAppExceptions.shared.scrollProfile(at: event.location))
         guard direction.invertVertical || direction.invertHorizontal,
               ScrollWheelSupport.isMouseWheel(traits, secondsSinceLastGesturePhase: nil),
               ScrollWheelHIDStage.shared.passed(event),
@@ -87,6 +88,7 @@ final class ScrollInverter: ObservableObject {
 
     /// Applies the persisted preference; safe to call repeatedly.
     func syncWithPreferences() {
+        MouseAppExceptions.shared.reload()
         let direction = ScrollDirectionPreferences()
         pinchZoomLock.withLock {
             let pinchLocation = zoomState.pinchLocation
@@ -95,8 +97,10 @@ final class ScrollInverter: ObservableObject {
             }
         }
         let speedWanted = Self.scrollSpeedWanted
+        let profilesWanted = AppFeature.scrollInverter.isAvailable(in: UserDefaults.standard)
+            && MouseAppExceptions.shared.scrollProfilesNeedTap
         if SessionActivitySupport.tapShouldRun(
-            featureWanted: direction.isEnabled || Self.linearScrollWanted || speedWanted,
+            featureWanted: direction.isEnabled || profilesWanted || Self.linearScrollWanted || speedWanted,
             accessibilityGranted: Permissions.shared.accessibility,
             sessionIsActive: SessionActivity.shared.isActive
         ) {
@@ -284,7 +288,8 @@ final class ScrollInverter: ObservableObject {
         else { return Unmanaged.passUnretained(event) }
 
         let defaults = UserDefaults.standard
-        let direction = ScrollDirectionPreferences(defaults: defaults)
+        let profile = MouseAppExceptions.shared.scrollProfile(at: event.location)
+        let direction = ScrollDirectionPreferences(defaults: defaults, profile: profile)
         let directionApplies = direction.isEnabled
             && !MouseAppExceptions.shared.excludesPointerTarget(
                 .scrollDirection, at: event.location, sourceProcessID: sourceProcessID)

@@ -138,9 +138,16 @@ struct ScrollDirectionPreferences {
                                      boolFor: boolFor, stringFor: stringFor)
     }
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, profile: MouseScrollDirectionProfile? = nil) {
         self.init(isAvailable: { defaults.bool(forKey: $0.availabilityKey) },
-                  boolFor: { defaults.bool(forKey: $0) },
+                  boolFor: { key in
+                      let base = defaults.bool(forKey: key)
+                      switch key {
+                      case DefaultsKey.scrollInverterEnabled: return profile?.vertical.effective(base) ?? base
+                      case DefaultsKey.scrollInverterHorizontalEnabled: return profile?.horizontal.effective(base) ?? base
+                      default: return base
+                      }
+                  },
                   stringFor: { defaults.string(forKey: $0) })
     }
 }

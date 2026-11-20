@@ -260,7 +260,7 @@ final class SmoothScrollService: ObservableObject {
         }
 
         let defaults = UserDefaults.standard
-        let direction = ScrollDirectionPreferences(defaults: defaults)
+        let direction = ScrollDirectionPreferences(defaults: defaults, profile: exceptions.scrollProfile(at: event.location))
         let scrollTargetExcluded = exceptions.excludesPointerTarget(
             .scrollDirection,
             at: event.location,

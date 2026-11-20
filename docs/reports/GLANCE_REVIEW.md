@@ -1,6 +1,6 @@
 # Glance Mac unlock review
 
-Reviewed source revision [b97f521](https://github.com/jonnyoo/glance/tree/b97f521397ec1197ba17768ba797cae1e628848d). The requested behavior is unlocking an existing macOS session. The security review covered app startup, lock and wake observations, enrollment and inference, liveness decisions, Keychain access, in-memory authorization, password delivery, settings, private overlay APIs and the model conversion recipe. It was a source review. No login password was supplied, and the upstream app was neither built nor run.
+Reviewed source revision [b97f521](https://github.com/jonnyoo/glance/tree/b97f521397ec1197ba17768ba797cae1e628848d). The requested behavior is unlocking an existing macOS session. The security review covered app startup, lock and wake observations, enrollment and inference, liveness decisions, Keychain access, in-memory authorization, password delivery, settings, private overlay APIs and the model conversion recipe. A source and configuration inventory scanned 76 text files. The detailed review focused on the trust-boundary paths above. No login password was supplied, and the upstream app was neither built nor run.
 
 ## Trust boundary
 

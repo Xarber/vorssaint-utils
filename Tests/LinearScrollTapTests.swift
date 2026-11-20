@@ -11,6 +11,10 @@ enum LinearScrollTapTests {
     enum StandardDefaults { static var standard = Foundation.UserDefaults() }
     final class Exceptions {
         static let shared = Exceptions()
+        var directionProfile: MouseScrollDirectionProfile?
+        var scrollProfilesNeedTap: Bool { directionProfile?.needsActiveTap == true }
+        func scrollProfile(at point: CGPoint) -> MouseScrollDirectionProfile? { directionProfile }
+        func reload() {}
         var excepted: Set<MouseExceptionScope> = []
         func excludesPointerTarget(_ scope: MouseExceptionScope, at point: CGPoint,
                                    sourceProcessID: Int64 = 0) -> Bool {
@@ -119,6 +123,26 @@ enum LinearScrollTapTests {
         func deliver(_ event: CGEvent, through inverter: Inverter = Inverter()) -> CGEvent? {
             inverter.handle(type: .scrollWheel, event: event)?.takeUnretainedValue()
         }
+
+        configure(invert: false)
+        Exceptions.shared.directionProfile = MouseScrollDirectionProfile(storage: "reversed,inherited")
+        suite.expect(deliver(wheel(line: 4, fixed: 4, point: 40)).map(verticalLine) == -3,
+                     "an app profile can reverse its wheel with the global switch off")
+        Exceptions.shared.excepted = [.scrollDirection]
+        suite.expect(deliver(wheel(line: 4, fixed: 4, point: 40)).map(verticalLine) == 3,
+                     "a direction exception still takes precedence over the app’s profile")
+        configure(invert: true)
+        Exceptions.shared.directionProfile = MouseScrollDirectionProfile(storage: "system,inherited")
+        suite.expect(deliver(wheel(line: 4, fixed: 4, point: 40)).map(verticalLine) == 3,
+                     "an app profile can restore macOS direction when global reversal is on")
+        configure(invert: false, inverterInstalled: false)
+        Exceptions.shared.directionProfile = MouseScrollDirectionProfile(storage: "reversed,inherited")
+        suite.expect(deliver(wheel(line: 4, fixed: 4, point: 40)).map(verticalLine) == 3,
+                     "uninstalling direction controls disables existing profiles")
+        suite.expect(MouseScrollDirectionProfile(storage: "invalid,inherited") == nil
+                     && MouseScrollDirectionProfile(storage: "system,reversed")?.storage == "system,reversed",
+                     "profile storage round-trips valid settings and rejects invalid fields")
+        Exceptions.shared.directionProfile = nil
 
         // Notches as a plain Bluetooth wheel sends them with macOS acceleration
         // on: slow, medium and fast turns of the same single notch.

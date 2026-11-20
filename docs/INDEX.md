@@ -12,7 +12,7 @@ Vorssaint is a SwiftUI and AppKit utility for Apple Silicon Macs running macOS 1
 - `Sources/Vorssaint/App` owns startup, the status item, and optional feature lifecycle.
 - `Sources/Vorssaint/Core` contains preferences, backup settings, feature catalog, and localized strings.
 - `Sources/Vorssaint/Services` owns feature behavior. Shelf stores files and coordinates promised-file delivery. Notch owns presentation and dispatches file drops to Shelf, AirDrop or media optimization. System Monitor samples USB peripherals and reads optional USB-C details on its sampling queue.
-- `Sources/Vorssaint/UI` contains the native settings and feature screens. The AirDrop presenter hands file URLs to AppKit. Cable details and the [Developer Android transfer preview](features/ANDROID_USB_TRANSFER.md) live in Connected Devices.
+- `Sources/Vorssaint/UI` contains the native settings and feature screens. The AirDrop presenter hands file URLs to AppKit. [Mouse scroll profiles](features/MOUSE_SCROLL_PROFILES.md) are available in Mouse & Trackpad settings. Cable details and the [Developer Android transfer preview](features/ANDROID_USB_TRANSFER.md) live in Connected Devices.
 - `Resources` contains the app bundle configuration and localized permission prompts.
 
 ## Verification
