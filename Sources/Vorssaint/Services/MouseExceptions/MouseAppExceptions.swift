@@ -97,7 +97,7 @@ final class MouseAppExceptions: ObservableObject {
             .filter { !$0.key.isEmpty && !MouseAppExceptionSupport.isExecutablePathIdentity($0.key) }
             .compactMapValues { MouseScrollDirectionProfile(storage: $0) }
         lock.withLock {
-            profileLookup = scrollProfiles.filter { $0.value.overridesDirection }
+            profileLookup = scrollProfiles.filter { $0.value.hasOverrides }
             allEmpty = profileLookup.isEmpty && lookups.values.allSatisfy(\.isEmpty)
             listsNamePath = lookups.values.contains {
                 $0.contains(where: MouseAppExceptionSupport.isExecutablePathIdentity)
@@ -111,6 +111,10 @@ final class MouseAppExceptions: ObservableObject {
 
     var scrollProfilesNeedTap: Bool {
         lock.withLock { profileLookup.values.contains(where: \.needsActiveTap) }
+    }
+
+    var scrollProfilesNeedLinearTap: Bool {
+        lock.withLock { profileLookup.values.contains { $0.linesPerNotch != nil } }
     }
 
     func setScrollProfile(_ profile: MouseScrollDirectionProfile?, for bundleID: String) {

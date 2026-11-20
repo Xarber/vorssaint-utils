@@ -265,6 +265,14 @@ struct MouseSettings: View {
                         Text(text.label(value)).tag(value)
                     }
                 }
+                if AppFeature.linearScroll.isAvailable {
+                    Picker(l10n.s.linearScrollLinesLabel, selection: scrollProfileDistance(id)) {
+                        Text(text.inherited).tag(Int?.none)
+                        ForEach(ScrollWheelSupport.linesPerNotchRange, id: \.self) { distance in
+                            Text(distance.formatted()).tag(Int?.some(distance))
+                        }
+                    }
+                }
             } label: {
                 Label(text.edit, systemImage: "slider.horizontal.3")
             }
@@ -284,10 +292,20 @@ struct MouseSettings: View {
         }
     }
 
+    private func scrollProfileDistance(_ bundleID: String) -> Binding<Int?> {
+        Binding {
+            appOverrides.scrollProfiles[bundleID]?.linesPerNotch
+        } set: { distance in
+            guard var profile = appOverrides.scrollProfiles[bundleID] else { return }
+            profile.linesPerNotch = distance
+            updateScrollProfile(profile, for: bundleID)
+        }
+    }
+
     private func updateScrollProfile(_ profile: MouseScrollDirectionProfile?, for bundleID: String) {
         appOverrides.setScrollProfile(profile, for: bundleID)
         ScrollInverter.shared.syncWithPreferences()
-        if profile?.needsActiveTap == true { permissions.requestAccessibility() }
+        if profile?.needsActiveTap == true || profile?.linesPerNotch != nil { permissions.requestAccessibility() }
     }
 
     private var zoomCard: some View {

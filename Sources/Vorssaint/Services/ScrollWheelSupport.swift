@@ -415,11 +415,11 @@ extension ScrollWheelSupport {
     /// exception list. Both wheel taps ask it the same way; the exception
     /// list is only consulted while the feature is on.
     static func linearLinesPerNotch(defaults: UserDefaults, isAvailable: Bool,
+                                    profile: MouseScrollDirectionProfile? = nil,
                                     isExcepted: () -> Bool) -> Int? {
-        guard isAvailable, defaults.bool(forKey: DefaultsKey.linearScrollEnabled), !isExcepted() else {
-            return nil
-        }
-        return sanitizedLinesPerNotch(defaults.integer(forKey: DefaultsKey.linearScrollLines))
+        guard isAvailable, profile?.linesPerNotch != nil || defaults.bool(forKey: DefaultsKey.linearScrollEnabled),
+              !isExcepted() else { return nil }
+        return sanitizedLinesPerNotch(profile?.linesPerNotch ?? defaults.integer(forKey: DefaultsKey.linearScrollLines))
     }
 
     /// Clamps the persisted value to its allowed range (0 or garbage falls

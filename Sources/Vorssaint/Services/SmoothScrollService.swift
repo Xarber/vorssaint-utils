@@ -260,7 +260,8 @@ final class SmoothScrollService: ObservableObject {
         }
 
         let defaults = UserDefaults.standard
-        let direction = ScrollDirectionPreferences(defaults: defaults, profile: exceptions.scrollProfile(at: event.location))
+        let profile = exceptions.scrollProfile(at: event.location)
+        let direction = ScrollDirectionPreferences(defaults: defaults, profile: profile)
         let scrollTargetExcluded = exceptions.excludesPointerTarget(
             .scrollDirection,
             at: event.location,
@@ -324,6 +325,7 @@ final class SmoothScrollService: ObservableObject {
         let linearLinesPerNotch = ScrollWheelSupport.linearLinesPerNotch(
             defaults: defaults,
             isAvailable: AppFeature.linearScroll.isAvailable,
+            profile: profile,
             isExcepted: {
                 exceptions.excludesPointerTarget(
                     .linearScroll,

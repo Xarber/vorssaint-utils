@@ -65,21 +65,29 @@ struct MouseScrollDirectionProfile: Equatable {
 
     var vertical: Direction = .inherited
     var horizontal: Direction = .inherited
+    var linesPerNotch: Int?
 
     init() {}
 
     init?(storage: String) {
         let fields = storage.split(separator: ",")
-        guard fields.count == 2,
+        guard (2...3).contains(fields.count),
               let vertical = Direction(rawValue: String(fields[0])),
               let horizontal = Direction(rawValue: String(fields[1])) else { return nil }
         self.vertical = vertical
         self.horizontal = horizontal
+        if fields.count == 3 {
+            guard let distance = Int(fields[2]), (1...10).contains(distance) else { return nil }
+            linesPerNotch = distance
+        }
     }
 
-    var storage: String { "\(vertical.rawValue),\(horizontal.rawValue)" }
+    var storage: String {
+        let direction = "\(vertical.rawValue),\(horizontal.rawValue)"
+        return linesPerNotch.map { direction + ",\($0)" } ?? direction
+    }
     var needsActiveTap: Bool { vertical == .reversed || horizontal == .reversed }
-    var overridesDirection: Bool { vertical != .inherited || horizontal != .inherited }
+    var hasOverrides: Bool { vertical != .inherited || horizontal != .inherited || linesPerNotch != nil }
 }
 
 /// The pure half of the mouse exceptions: which window answers for the app

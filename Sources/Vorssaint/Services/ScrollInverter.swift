@@ -123,7 +123,8 @@ final class ScrollInverter: ObservableObject {
     /// features; its keys survive the hub uninstalling it.
     private static var linearScrollWanted: Bool {
         AppFeature.linearScroll.isAvailable
-            && UserDefaults.standard.bool(forKey: DefaultsKey.linearScrollEnabled)
+            && (UserDefaults.standard.bool(forKey: DefaultsKey.linearScrollEnabled)
+                || MouseAppExceptions.shared.scrollProfilesNeedLinearTap)
     }
 
     /// Modifier-held speed likewise keeps the tap alive when direction and
@@ -137,7 +138,9 @@ final class ScrollInverter: ObservableObject {
     /// tap is up for, so a list left behind by the other feature costs nothing.
     private func setSourceTracking(_ running: Bool) {
         let exceptions = MouseAppExceptions.shared
-        exceptions.setSourceTracking(running && ScrollDirectionPreferences().isEnabled, for: .scrollDirection)
+        let directionsWanted = ScrollDirectionPreferences().isEnabled
+            || (AppFeature.scrollInverter.isAvailable && exceptions.scrollProfilesNeedTap)
+        exceptions.setSourceTracking(running && directionsWanted, for: .scrollDirection)
         exceptions.setSourceTracking(running && Self.linearScrollWanted, for: .linearScroll)
         exceptions.setSourceTracking(running && Self.scrollSpeedWanted, for: .scrollSpeed)
     }
@@ -317,6 +320,7 @@ final class ScrollInverter: ObservableObject {
         let linesPerNotch = nativeZoom ? nil : ScrollWheelSupport.linearLinesPerNotch(
             defaults: defaults,
             isAvailable: AppFeature.linearScroll.isAvailable,
+            profile: profile,
             isExcepted: {
                 MouseAppExceptions.shared.excludesPointerTarget(
                     .linearScroll,

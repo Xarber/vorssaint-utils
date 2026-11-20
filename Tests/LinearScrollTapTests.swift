@@ -12,6 +12,7 @@ enum LinearScrollTapTests {
     final class Exceptions {
         static let shared = Exceptions()
         var directionProfile: MouseScrollDirectionProfile?
+        var scrollProfilesNeedLinearTap: Bool { directionProfile?.linesPerNotch != nil }
         var scrollProfilesNeedTap: Bool { directionProfile?.needsActiveTap == true }
         func scrollProfile(at point: CGPoint) -> MouseScrollDirectionProfile? { directionProfile }
         func reload() {}
@@ -142,6 +143,13 @@ enum LinearScrollTapTests {
         suite.expect(MouseScrollDirectionProfile(storage: "invalid,inherited") == nil
                      && MouseScrollDirectionProfile(storage: "system,reversed")?.storage == "system,reversed",
                      "profile storage round-trips valid settings and rejects invalid fields")
+        configure(linear: false)
+        Exceptions.shared.directionProfile = MouseScrollDirectionProfile(storage: "inherited,inherited,7")
+        suite.expect(deliver(wheel(line: 1, fixed: 1, point: 10)).map(verticalLine) == 7,
+                     "a profile can set its own wheel distance with global linear scrolling off")
+        Exceptions.shared.excepted = [.linearScroll]
+        suite.expect(deliver(wheel(line: 1, fixed: 1, point: 10)).map(verticalLine) == 1,
+                     "per-app wheel distance honors the linear scrolling exception")
         Exceptions.shared.directionProfile = nil
 
         // Notches as a plain Bluetooth wheel sends them with macOS acceleration
