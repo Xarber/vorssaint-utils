@@ -7,3 +7,5 @@ The helper uses a checksum-pinned LocalSend v2.2 source tree and TLS peer-certif
 For Quick Share, an installed NearDrop companion supplies **NearDrop** in the native file Share menu. **Connected Devices → Open Quick Share Receiver** opens that app. Its own QR, visibility, and receive controls manage the transfer. See the [NearDrop usage guide](https://github.com/grishka/NearDrop).
 
 LocalSend’s helper tests exercise a pinned HTTPS loopback transfer and file-name validation. Physical peer tests, helper permission attribution, and NearDrop’s registered Share service still require testing on a Mac and Android device.
+
+See [transfer trust boundaries](../reports/TRANSFER_TRUST_BOUNDARIES.md) for the permission, file handling and physical test coverage.

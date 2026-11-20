@@ -26,3 +26,4 @@ For Android helper validation, Homebrew installed `libmtp` 1.1.23 alongside the 
 - The Shelf, Metrics, Pointer Input and Linear Scroll test suites passed 2,356 assertions after this update. The operator-facing Android file manager and transfer helper were type-checked and compiled locally. No physical Android device was available for mutation or transfer verification.
 - The LocalSend helper passed two tests, including a TLS-pinned transfer to a loopback peer that requested and accepted a real file. Physical LAN discovery and mobile-client interoperability are pending.
 - The Thunderbolt router sampler compiled against the macOS 26 SDK. There is no connected-dock verification of its topology.
+- The whole Developer Swift app type-checked at the preview revision. [GitHub Actions run 44720837848](https://github.com/Xarber/vorssaint-utils/actions/runs/44720837848) was queued for `ac3ff11b`. The current artifact status is pending.

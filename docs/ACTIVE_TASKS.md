@@ -13,7 +13,7 @@ Planning snapshot, 20 November 2026. The checkout is `Xarber/vorssaint-utils`, o
 | VOR-07 | 7 | 6 | In Progress | An opt-in Developer build has folder browsing, multi-copy, rename, move and delete backed by libmtp. Validate physical-device transfers and Finder integration. |
 
 | VOR-08 | 8 | 1 | Verified | Fast-forward the fork to upstream. GitHub main verified at `faada18d`. Merge into the integration branch preserves media-workspace drops and AirDrop. Shelf passed 482 checks after the merge. |
-| VOR-09 | 9 | 8 | Implemented | Developer preview workflow tags select the source commit. Verify a real Actions build and zipped artifact. |
+| VOR-09 | 9 | 8 | Implemented | Developer preview workflow queued for `ac3ff11b` as [Actions run 44720837848](https://github.com/Xarber/vorssaint-utils/actions/runs/44720837848). Verify completed checks and zipped artifact after the run finishes. |
 
 Implementation proceeds on `test/vorssaint-integrations`. AirDrop went first because its drop routing is also useful to both wireless providers. Cable sampling proceeded independently while upstream transport and dependency contracts were reviewed.
 
