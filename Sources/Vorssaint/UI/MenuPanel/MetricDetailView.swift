@@ -167,6 +167,14 @@ struct MetricDetailView: View {
             if kind == .connectedDevices && !monitor.snapshot.usbPorts.isEmpty {
                 cableDetailsCard
             }
+#if VORSSAINT_DEVELOPMENT
+            if kind == .connectedDevices && AndroidTransferWindow.available {
+                Button { AndroidTransferWindow.shared.show() } label: {
+                    Label("Android File Transfer", systemImage: "cable.connector")
+                }
+                .panelCard()
+            }
+#endif
             if kind == .network {
                 speedTestCard
             }

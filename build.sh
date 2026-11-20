@@ -706,6 +706,14 @@ STAGE="$STAGE_TMP/$APP_NAME.app"
 mkdir -p "$STAGE/Contents/MacOS" "$STAGE/Contents/Resources" \
     "$STAGE/Contents/Library/LaunchDaemons" "$STAGE/Contents/Library/LaunchServices"
 cp "build/$EXECUTABLE" "$STAGE/Contents/MacOS/$EXECUTABLE"
+if (( DEV )) && [[ "${VORSSAINT_DEV_MTP:-0}" == 1 ]]; then
+    mtp_library="$(pkg-config --variable=libdir libmtp)/libmtp.a"
+    usb_library="$(pkg-config --variable=libdir libusb-1.0)/libusb-1.0.a"
+    mtp_headers="$(pkg-config --variable=includedir libmtp)"
+    clang -Wall -Wextra -Werror -I "$mtp_headers" Sources/AndroidMTPHelper/main.c \
+        "$mtp_library" "$usb_library" -liconv -framework IOKit -framework CoreFoundation -framework Security \
+        -o "$STAGE/Contents/MacOS/vorssaint-mtp"
+fi
 cp "build/$FAN_HELPER_ID" "$STAGE/Contents/Library/LaunchServices/$FAN_HELPER_ID"
 mkdir -p "$STAGE/Contents/Frameworks"
 cp "build/$NOW_PLAYING_ADAPTER" "$STAGE/Contents/Frameworks/$NOW_PLAYING_ADAPTER"
@@ -794,14 +802,15 @@ codesign_app() {
 
 codesign_fan_helper() {
     local target="$1"
+    local identifier="${2:-$FAN_HELPER_ID}"
     if [[ -n "$DEVID" ]]; then
         codesign_with_timestamp_retry --force --strip-disallowed-xattrs --options runtime --timestamp \
-            --identifier "$FAN_HELPER_ID" --sign "$DEVID" "$target"
+            --identifier "$identifier" --sign "$DEVID" "$target"
     elif legacy_identity_installed; then
-        codesign --force --strip-disallowed-xattrs --identifier "$FAN_HELPER_ID" \
+        codesign --force --strip-disallowed-xattrs --identifier "$identifier" \
             --sign "$LEGACY_IDENTITY" "$target"
     else
-        codesign --force --strip-disallowed-xattrs --identifier "$FAN_HELPER_ID" --sign - "$target"
+        codesign --force --strip-disallowed-xattrs --identifier "$identifier" --sign - "$target"
     fi
 }
 
@@ -833,6 +842,7 @@ sign_bundle() {
     fi
     [[ -f "$helper" ]] && codesign_fan_helper "$helper"
     [[ -f "$adapter" ]] && codesign_now_playing_adapter "$adapter"
+    [[ -f "$bundle/Contents/MacOS/vorssaint-mtp" ]] && codesign_fan_helper "$bundle/Contents/MacOS/vorssaint-mtp" "com.vorssaint.utils.mtp"
     codesign_app "$bundle"
 
     # If local filesystem metadata invalidates the first signature, sign once
@@ -842,6 +852,7 @@ sign_bundle() {
         xattr -c -r "$bundle" 2>/dev/null || true
         [[ -f "$helper" ]] && codesign_fan_helper "$helper"
         [[ -f "$adapter" ]] && codesign_now_playing_adapter "$adapter"
+        [[ -f "$bundle/Contents/MacOS/vorssaint-mtp" ]] && codesign_fan_helper "$bundle/Contents/MacOS/vorssaint-mtp" "com.vorssaint.utils.mtp"
         codesign_app "$bundle"
     fi
     [[ -f "$executable" ]] && codesign --verify --strict "$executable"
