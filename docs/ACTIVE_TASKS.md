@@ -6,7 +6,7 @@ Planning snapshot, 20 November 2026. The checkout is `Xarber/vorssaint-utils`, o
 | --- | ---: | ---: | --- | --- |
 | VOR-01 | 1 | 7 | Blocked | Actual Mac unlock. The reviewed upstream path would require handling and replaying the Mac login password and redistribution of restricted model weights. See the [Glance review](reports/GLANCE_REVIEW.md). |
 | VOR-02 | 2 | 1 | Implemented | Notch Files routes file drops to Shelf, native AirDrop or Optimize Media. Notch passed 67,894 assertions and Shelf passed 482 assertions. Verify the picker and peer receipt on Apple hardware. |
-| VOR-03 | 3 | 2 | In Progress | LocalSend. The upstream Rust core passed its locked discovery-feature type check. Implement consent, HTTPS, discovery, and a native Shelf adapter. |
+| VOR-03 | 3 | 2 | In Progress | LocalSend. The upstream Rust core passed its locked discovery-feature type check and three upstream targeted discovery tests. Implement consent, HTTPS, discovery, and a native Shelf adapter. |
 | VOR-04 | 4 | 3 | Queued | NearDrop-compatible Quick Share. Protocol and dependency entry points identified. Reuse the transfer interface from VOR-03 and validate both transfer directions over Wi-Fi. |
 | VOR-05 | 5 | 4 | Implemented | Connected Devices has a read-only USB-C details view. The metrics suite passed 573 checks. Verify on real hardware. Thunderbolt/dock topology and broader diagnostics remain open. |
 | VOR-06 | 6 | 5 | In Progress | Per-app vertical and horizontal direction implemented and checked in the Pointer Input and Linear Scroll suites. Per-device settings, sensitivity, button profiles, modifier actions, and autoscroll are pending. |
