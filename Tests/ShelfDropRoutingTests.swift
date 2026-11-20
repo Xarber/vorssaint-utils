@@ -59,8 +59,11 @@ enum ShelfDropRoutingContract {
         var modules: [NotchModule] = [.files]
         var heldDrag = true
         var dragPlaceholder = true
-        var choosingFileDropDestination = false
-        var targetsMediaDrop = false
+        var fileDropDestinations: [NotchFileDropDestination] = []
+        var targetedFileDrop: NotchFileDropDestination = .shelf
+        var choosingFileDropDestination: Bool { !fileDropDestinations.isEmpty }
+        var targetsMediaDrop: Bool { targetedFileDrop == .optimizeMedia }
+        let airDropPresenter = AirDropStub()
         var pinned = false
         var geometry = NotchGeometry(screen: CGRect(x: 0, y: 0, width: 1440, height: 900), safeAreaTop: 32, cameraWidth: 180)
         var expandedGeometry: NotchGeometry { geometry }
@@ -72,6 +75,18 @@ enum ShelfDropRoutingContract {
         func open(_ module: NotchModule, pinned: Bool = false, takeFocus: Bool = true) {
             opened.append(module)
             if pinned { self.pinned = true }
+        }
+    }
+    final class AirDropStub {
+        var offers = false
+        var isAvailable = true
+        var accepts = true
+        var accepted = 0
+        func canOffer(_ pasteboard: NSPasteboard) -> Bool { offers }
+        func accept(_ pasteboard: NSPasteboard, canContinue: () -> Bool) -> Bool {
+            guard accepts, isAvailable, canContinue() else { return false }
+            accepted += 1
+            return true
         }
     }
     class FileToolsState {
@@ -177,6 +192,27 @@ enum ShelfDropRoutingTests {
         Context.AppFeature.shelf.isAvailable = true
         Context.UserDefaults.standard.enabled = true
         mediaDrops(suite)
+        airDrop(suite, board: board)
+    }
+
+    private static func airDrop(_ suite: TestSuite, board: NSPasteboard) {
+        Context.ShelfService.shared = Context.ShelfService()
+        let notch = Context.Notch()
+        notch.airDropPresenter.offers = true
+        notch.beginFileDrop(board)
+        suite.expect(notch.fileDropDestinations == [.shelf, .airDrop],
+                     "AirDrop is beside the shelf for shareable files")
+        let area = NotchFileToolsSupport.dropArea(at: 1, count: 2, in: notch.geometry, size: notch.surfaceSize)
+        let point = CGPoint(x: area.midX, y: area.midY)
+        notch.airDropPresenter.isAvailable = false
+        suite.expect(!notch.updateFileDrop(at: point),
+                     "a busy AirDrop picker rejects the target without redirecting to the shelf")
+        notch.airDropPresenter.isAvailable = true
+        suite.expect(notch.updateFileDrop(at: point) && notch.targetedFileDrop == .airDrop && notch.accept(board),
+                     "releasing over AirDrop hands the batch to the sharing provider")
+        suite.expect(notch.airDropPresenter.accepted == 1 && Context.ShelfService.shared.ordinaryAccepts == 0
+                     && notch.reactions.isEmpty && !notch.choosingFileDropDestination,
+                     "a share leaves the shelf untouched and clears the drop state")
     }
 
     private static func mediaDrops(_ suite: TestSuite) {
@@ -243,6 +279,26 @@ enum ShelfDropRoutingTests {
             board.writeObjects([image as NSURL, text])
             suite.expect(Context.NotchFileToolsService.shared.mediaDropContent(for: board) == nil,
                    "a text companion prevents partial optimization of a mixed drag")
+
+            reset()
+            board.clearContents()
+            board.writeObjects([image as NSURL])
+            let threeTargets = Context.Notch()
+            threeTargets.airDropPresenter.offers = true
+            threeTargets.beginFileDrop(board)
+            suite.expect(threeTargets.fileDropDestinations == [.shelf, .airDrop, .optimizeMedia],
+                         "eligible media keeps all three choices with AirDrop next to Files")
+            let middle = NotchFileToolsSupport.dropArea(at: 1, count: 3, in: threeTargets.geometry,
+                                                        size: threeTargets.surfaceSize)
+            let right = NotchFileToolsSupport.dropArea(at: 2, count: 3, in: threeTargets.geometry,
+                                                       size: threeTargets.surfaceSize)
+            suite.expect(threeTargets.updateFileDrop(at: CGPoint(x: middle.midX, y: middle.midY))
+                         && threeTargets.targetedFileDrop == .airDrop,
+                         "the middle card routes to AirDrop when Optimize Media is present")
+            suite.expect(threeTargets.updateFileDrop(at: CGPoint(x: right.midX, y: right.midY))
+                         && threeTargets.targetedFileDrop == .optimizeMedia,
+                         "moving over the last card keeps Optimize Media independently reachable")
+            threeTargets.endFileDrop()
 
             for revoked in 0..<9 {
                 reset()

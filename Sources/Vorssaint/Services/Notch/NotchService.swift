@@ -128,8 +128,10 @@ final class NotchService: ObservableObject {
     private let hotkey = QuickToolHotkey(id: 81)
     @Published private(set) var peeking = false
     @Published private(set) var dragPlaceholder = false
-    @Published private(set) var choosingFileDropDestination = false
-    @Published private(set) var targetsMediaDrop = false
+    @Published private(set) var fileDropDestinations: [NotchFileDropDestination] = []
+    @Published private(set) var targetedFileDrop: NotchFileDropDestination = .shelf
+    private let airDropPresenter = ShelfAirDropPresenter()
+    var choosingFileDropDestination: Bool { !fileDropDestinations.isEmpty }
     @Published private(set) var selectedMetric: MetricDetailKind?
     @Published private(set) var captureControls: ScreenCaptureSelectionOptions?
     @Published private(set) var captureControlsCollapsed = false
@@ -1170,7 +1172,7 @@ final class NotchService: ObservableObject {
         // Requested file work can continue while locked, but disabling its
         // feature must still cancel it before presentation resumes.
         NotchFileToolsService.shared.syncWithPreferences()
-        if !NotchFileToolsService.shared.offersMediaDrop { endFileDrop() }
+        if !canAcceptFileDrop { endFileDrop() }
         // Paused while the island is away, the section still stops at once
         // when it is turned off.
         if !NotchAgentSupport.isEnabled() { AgentUsageService.shared.stop() }
@@ -2291,24 +2293,41 @@ final class NotchService: ObservableObject {
 
     func beginFileDrop(_ pasteboard: NSPasteboard) {
         guard canAcceptFileDrop else { return }
-        choosingFileDropDestination = NotchFileToolsService.shared.mediaDropContent(for: pasteboard) != nil
-        targetsMediaDrop = false
+        var destinations: [NotchFileDropDestination] = [.shelf]
+        if airDropPresenter.canOffer(pasteboard) { destinations.append(.airDrop) }
+        if NotchFileToolsService.shared.mediaDropContent(for: pasteboard) != nil {
+            destinations.append(.optimizeMedia)
+        }
+        fileDropDestinations = destinations.count > 1 ? destinations : []
+        targetedFileDrop = .shelf
         open(.files, takeFocus: false)
     }
 
     @discardableResult
     func updateFileDrop(at point: CGPoint) -> Bool {
-        let targeted = choosingFileDropDestination
-            && NotchFileToolsSupport.mediaDropArea(in: expandedGeometry, size: surfaceSize).contains(point)
-        if targetsMediaDrop != targeted { targetsMediaDrop = targeted }
-        return !targeted || NotchFileToolsService.shared.canAcceptMediaDrop
+        let destination = fileDropDestinations.enumerated().first { index, _ in
+            NotchFileToolsSupport.dropArea(at: index, count: fileDropDestinations.count,
+                                          in: expandedGeometry, size: surfaceSize).contains(point)
+        }?.element ?? .shelf
+        if targetedFileDrop != destination { targetedFileDrop = destination }
+        switch destination {
+        case .shelf: return true
+        case .airDrop: return airDropPresenter.isAvailable
+        case .optimizeMedia: return NotchFileToolsService.shared.canAcceptMediaDrop
+        }
     }
 
     func endFileDrop() {
         let changed = choosingFileDropDestination
-        if changed { choosingFileDropDestination = false }
-        if targetsMediaDrop { targetsMediaDrop = false }
+        if changed { fileDropDestinations = [] }
+        if targetedFileDrop != .shelf { targetedFileDrop = .shelf }
         if changed, acceptsUserInteraction { refreshPresentation() }
+    }
+
+    @discardableResult
+    func airDropShelfFiles(_ urls: [URL]) -> Bool {
+        guard canAcceptFileDrop else { return false }
+        return airDropPresenter.share(urls) { [weak self] in self?.canAcceptFileDrop == true }
     }
 
     func keepFileInteractionOpen(_ active: Bool) {
@@ -2319,17 +2338,25 @@ final class NotchService: ObservableObject {
     func accept(_ pasteboard: NSPasteboard) -> Bool {
         defer { endFileDrop() }
         guard canAcceptFileDrop else { return false }
-        let optimize = choosingFileDropDestination && targetsMediaDrop
-        let accepted = optimize
-            ? NotchFileToolsService.shared.openMediaDrop(pasteboard)
-            : ShelfService.shared.acceptDrop(pasteboard: pasteboard)
+        let destination = targetedFileDrop
+        let accepted: Bool
+        switch destination {
+        case .shelf:
+            accepted = ShelfService.shared.acceptDrop(pasteboard: pasteboard)
+        case .airDrop:
+            accepted = airDropPresenter.accept(pasteboard) { [weak self] in self?.canAcceptFileDrop == true }
+        case .optimizeMedia:
+            accepted = NotchFileToolsService.shared.openMediaDrop(pasteboard)
+        }
         if accepted {
             heldDrag = false
             dragPlaceholder = false
-            if !optimize { NotchFileToolsService.shared.hideMedia() }
-            open(.files)
-            // A little hop for the file it watched come in, once the island rests again.
-            reactMascot(.celebrate, patience: 30)
+            if destination == .shelf { NotchFileToolsService.shared.hideMedia() }
+            open(.files, takeFocus: destination != .airDrop)
+            if destination != .airDrop {
+                // A little hop for the file it watched come in, once the island rests again.
+                reactMascot(.celebrate, patience: 30)
+            }
         }
         return accepted
     }
@@ -3650,8 +3677,10 @@ final class NotchService: ObservableObject {
         if modules.contains(.files), AppFeature.shelf.isAvailable {
             windowHost?.setFileDropActions(NotchFileDropActions(
                 canAccept: { [weak self] pasteboard in
-                    self?.canAcceptFileDrop == true && !ShelfService.shared.isInternalDragActive
-                        && ShelfService.shared.canAcceptPasteboard(pasteboard)
+                    guard let self, self.canAcceptFileDrop, !ShelfService.shared.isInternalDragActive else {
+                        return false
+                    }
+                    return ShelfService.shared.canAcceptPasteboard(pasteboard) || self.airDropPresenter.canOffer(pasteboard)
                 },
                 enter: { [weak self] in self?.beginFileDrop($0) },
                 accept: { [weak self] in self?.accept($0) == true },

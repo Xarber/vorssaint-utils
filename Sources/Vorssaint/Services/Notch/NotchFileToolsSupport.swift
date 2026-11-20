@@ -5,14 +5,27 @@ import Darwin
 import Foundation
 import UniformTypeIdentifiers
 
+enum NotchFileDropDestination: CaseIterable {
+    case shelf, airDrop, optimizeMedia
+}
+
 enum NotchFileToolsSupport {
     static let dropSpacing: CGFloat = 12
 
-    static func mediaDropArea(in geometry: NotchGeometry, size: CGSize) -> CGRect {
+    static func dropWidth(contentWidth: CGFloat, count: Int) -> CGFloat {
+        guard count > 0 else { return 0 }
+        return max(0, (contentWidth - CGFloat(count - 1) * dropSpacing) / CGFloat(count))
+    }
+
+    static func dropArea(at index: Int, count: Int, in geometry: NotchGeometry, size: CGSize) -> CGRect {
         let content = geometry.contentSize(for: size)
-        return CGRect(x: size.width / 2 + dropSpacing / 2,
-                      y: geometry.pageTopInset,
-                      width: max(0, (content.width - dropSpacing) / 2), height: content.height)
+        let width = dropWidth(contentWidth: content.width, count: count)
+        return CGRect(x: (size.width - content.width) / 2 + CGFloat(index) * (width + dropSpacing),
+                      y: geometry.pageTopInset, width: width, height: content.height)
+    }
+
+    static func mediaDropArea(in geometry: NotchGeometry, size: CGSize) -> CGRect {
+        dropArea(at: 1, count: 2, in: geometry, size: size)
     }
 
     static func optimizationTool(for urls: [URL]) -> MediaTool? {

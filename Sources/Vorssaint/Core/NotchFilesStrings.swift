@@ -20,6 +20,7 @@ struct NotchFilesStrings {
     let optimizeMedia: String
     let optimizeDropHint: String
     let resumeMedia: String
+    let airDropUnavailable: String
 }
 
 extension FeatureStrings {
@@ -41,7 +42,8 @@ extension FeatureStrings {
             clearFolder: "Forget Folder",
             optimizeMedia: "Optimize media",
             optimizeDropHint: "Drag images or one video onto the island, then drop on Optimize media to choose how to save a copy.",
-            resumeMedia: "Return to media")
+            resumeMedia: "Return to media",
+            airDropUnavailable: "AirDrop couldn’t open for these files.")
         case .ptBR: return NotchFilesStrings(
             archive: "Criar ZIP",
             archiveHint: "Cada item selecionado vira um ZIP separado. Os originais são preservados.",
@@ -58,7 +60,8 @@ extension FeatureStrings {
             clearFolder: "Esquecer pasta",
             optimizeMedia: "Otimizar mídia",
             optimizeDropHint: "Arraste imagens ou um vídeo até a ilha e solte em Otimizar mídia para escolher como salvar uma cópia.",
-            resumeMedia: "Voltar à mídia")
+            resumeMedia: "Voltar à mídia",
+            airDropUnavailable: "Não foi possível abrir o AirDrop para estes arquivos.")
         case .es: return NotchFilesStrings(
             archive: "Crear ZIP",
             archiveHint: "Cada elemento seleccionado se guarda en un ZIP separado. Se conservan los originales.",
@@ -75,7 +78,8 @@ extension FeatureStrings {
             clearFolder: "Olvidar carpeta",
             optimizeMedia: "Optimizar contenido",
             optimizeDropHint: "Arrastra imágenes o un vídeo a la isla y suéltalos en Optimizar contenido para elegir cómo guardar una copia.",
-            resumeMedia: "Volver al contenido multimedia")
+            resumeMedia: "Volver al contenido multimedia",
+            airDropUnavailable: "No se pudo abrir AirDrop para estos archivos.")
         case .sk: return NotchFilesStrings(
             archive: "Vytvoriť ZIP",
             archiveHint: "Každá vybratá položka sa uloží ako samostatný ZIP. Originály zostanú nezmenené.",
@@ -92,7 +96,8 @@ extension FeatureStrings {
             clearFolder: "Zabudnúť priečinok",
             optimizeMedia: "Optimalizovať médiá",
             optimizeDropHint: "Presuňte obrázky alebo jedno video na Dynamic Island a pustite ich na Optimalizovať médiá, aby ste vybrali spôsob uloženia kópie.",
-            resumeMedia: "Späť na médiá")
+            resumeMedia: "Späť na médiá",
+            airDropUnavailable: "Pre tieto súbory sa nepodarilo otvoriť AirDrop.")
         case .de: return NotchFilesStrings(
             archive: "ZIP erstellen",
             archiveHint: "Jedes ausgewählte Objekt wird als eigene ZIP-Datei gesichert. Die Originale bleiben erhalten.",
@@ -109,7 +114,8 @@ extension FeatureStrings {
             clearFolder: "Ordner vergessen",
             optimizeMedia: "Medien optimieren",
             optimizeDropHint: "Ziehe Bilder oder ein Video auf die Insel und lege sie auf Medien optimieren ab, um eine Kopie nach Wunsch zu sichern.",
-            resumeMedia: "Zurück zu Medien")
+            resumeMedia: "Zurück zu Medien",
+            airDropUnavailable: "AirDrop konnte für diese Dateien nicht geöffnet werden.")
         case .fr: return NotchFilesStrings(
             archive: "Créer un ZIP",
             archiveHint: "Chaque élément sélectionné est enregistré dans un ZIP distinct. Les originaux sont conservés.",
@@ -126,7 +132,8 @@ extension FeatureStrings {
             clearFolder: "Oublier le dossier",
             optimizeMedia: "Optimiser les médias",
             optimizeDropHint: "Faites glisser des images ou une vidéo sur l’îlot, puis déposez-les sur Optimiser les médias pour choisir comment enregistrer une copie.",
-            resumeMedia: "Revenir aux médias")
+            resumeMedia: "Revenir aux médias",
+            airDropUnavailable: "Impossible d’ouvrir AirDrop pour ces fichiers.")
         case .it: return NotchFilesStrings(
             archive: "Crea ZIP",
             archiveHint: "Ogni elemento selezionato viene salvato in uno ZIP separato. Gli originali restano invariati.",
@@ -143,7 +150,8 @@ extension FeatureStrings {
             clearFolder: "Dimentica cartella",
             optimizeMedia: "Ottimizza contenuti",
             optimizeDropHint: "Trascina immagini o un video sull’isola e rilasciali su Ottimizza contenuti per scegliere come salvare una copia.",
-            resumeMedia: "Torna ai contenuti multimediali")
+            resumeMedia: "Torna ai contenuti multimediali",
+            airDropUnavailable: "Non è stato possibile aprire AirDrop per questi file.")
         case .ru: return NotchFilesStrings(
             archive: "Создать ZIP",
             archiveHint: "Каждый выбранный объект сохраняется в отдельный ZIP. Оригиналы остаются без изменений.",
@@ -160,7 +168,8 @@ extension FeatureStrings {
             clearFolder: "Забыть папку",
             optimizeMedia: "Оптимизировать медиа",
             optimizeDropHint: "Перетащите изображения или одно видео на островок и отпустите над «Оптимизировать медиа», чтобы выбрать параметры сохранения копии.",
-            resumeMedia: "Вернуться к медиа")
+            resumeMedia: "Вернуться к медиа",
+            airDropUnavailable: "Не удалось открыть AirDrop для этих файлов.")
         case .tr: return NotchFilesStrings(
             archive: "ZIP oluştur",
             archiveHint: "Seçilen her öğe ayrı bir ZIP olarak kaydedilir. Orijinaller korunur.",
@@ -177,7 +186,8 @@ extension FeatureStrings {
             clearFolder: "Klasörü unut",
             optimizeMedia: "Medyayı iyileştir",
             optimizeDropHint: "Görüntüleri veya tek bir videoyu adaya sürükleyip Medyayı iyileştir alanına bırakın ve kopyayı nasıl kaydedeceğinizi seçin.",
-            resumeMedia: "Medyaya dön")
+            resumeMedia: "Medyaya dön",
+            airDropUnavailable: "Bu dosyalar için AirDrop açılamadı.")
         case .ja: return NotchFilesStrings(
             archive: "ZIPを作成",
             archiveHint: "選択した項目ごとにZIPを保存します。元のファイルは保持されます。",
@@ -194,7 +204,8 @@ extension FeatureStrings {
             clearFolder: "フォルダの選択を解除",
             optimizeMedia: "メディアを最適化",
             optimizeDropHint: "画像または1本の動画をアイランドにドラッグし、「メディアを最適化」にドロップして、コピーの保存方法を選びます。",
-            resumeMedia: "メディアに戻る")
+            resumeMedia: "メディアに戻る",
+            airDropUnavailable: "これらのファイルでAirDropを開けませんでした。")
         case .ko: return NotchFilesStrings(
             archive: "ZIP 만들기",
             archiveHint: "선택한 항목마다 별도의 ZIP으로 저장합니다. 원본은 유지됩니다.",
@@ -211,7 +222,8 @@ extension FeatureStrings {
             clearFolder: "폴더 선택 해제",
             optimizeMedia: "미디어 최적화",
             optimizeDropHint: "이미지 또는 동영상 하나를 아일랜드로 드래그한 뒤 미디어 최적화에 놓으면 사본 저장 방식을 선택할 수 있습니다.",
-            resumeMedia: "미디어로 돌아가기")
+            resumeMedia: "미디어로 돌아가기",
+            airDropUnavailable: "이 파일의 AirDrop을 열 수 없습니다.")
         case .zhHans: return NotchFilesStrings(
             archive: "创建 ZIP",
             archiveHint: "每个所选项目单独保存为 ZIP。原始文件保持不变。",
@@ -228,7 +240,8 @@ extension FeatureStrings {
             clearFolder: "忘记文件夹",
             optimizeMedia: "优化媒体",
             optimizeDropHint: "将图片或一个视频拖到灵动岛，再放到“优化媒体”上，选择如何保存副本。",
-            resumeMedia: "返回媒体")
+            resumeMedia: "返回媒体",
+            airDropUnavailable: "无法为这些文件打开 AirDrop。")
         case .zhTW: return NotchFilesStrings(
             archive: "製作 ZIP",
             archiveHint: "每個所選項目會儲存為個別的 ZIP。原始檔案保持不變。",
@@ -245,7 +258,8 @@ extension FeatureStrings {
             clearFolder: "忘記檔案夾",
             optimizeMedia: "最佳化媒體",
             optimizeDropHint: "將圖片或一部影片拖曳到動態島，再放到「最佳化媒體」上，選擇如何儲存副本。",
-            resumeMedia: "返回媒體")
+            resumeMedia: "返回媒體",
+            airDropUnavailable: "無法為這些檔案開啟 AirDrop。")
         case .zhHK: return NotchFilesStrings(
             archive: "製作 ZIP",
             archiveHint: "每個所選項目會儲存為個別的 ZIP。原始檔案保持不變。",
@@ -262,7 +276,8 @@ extension FeatureStrings {
             clearFolder: "忘記資料夾",
             optimizeMedia: "最佳化媒體",
             optimizeDropHint: "將圖片或一段影片拖曳到動態島，再放到「最佳化媒體」上，選擇如何儲存副本。",
-            resumeMedia: "返回媒體")
+            resumeMedia: "返回媒體",
+            airDropUnavailable: "無法為這些檔案開啟 AirDrop。")
         case .uk: return NotchFilesStrings(
             archive: "Створити ZIP",
             archiveHint: "Кожен вибраний елемент зберігається в окремий ZIP. Оригінали лишаються без змін.",
@@ -279,7 +294,8 @@ extension FeatureStrings {
             clearFolder: "Забути папку",
             optimizeMedia: "Оптимізувати медіа",
             optimizeDropHint: "Перетягніть зображення або одне відео на острівець і відпустіть над «Оптимізувати медіа», щоб вибрати, як зберегти копію.",
-            resumeMedia: "Повернутися до медіа")
+            resumeMedia: "Повернутися до медіа",
+            airDropUnavailable: "Не вдалося відкрити AirDrop для цих файлів.")
         }
     }
 }

@@ -20,17 +20,12 @@ struct NotchFilesView: View {
     @Environment(\.notchSettingsPreview) private var preview
     private var text: NotchFilesStrings { FeatureStrings.notchFiles(l10n.language) }
 
-    /// Dragging media over the island asks where it goes.
-    private var choosesDropDestination: Bool {
-        service.choosingFileDropDestination && AppFeature.mediaTools.isAvailable
-    }
-
     private var presentedMediaSession: NotchMediaSession? {
         archives.mediaPresented && AppFeature.mediaTools.isAvailable ? archives.mediaSession : nil
     }
 
     private var showsTiles: Bool {
-        !choosesDropDestination && presentedMediaSession == nil && !shelf.items.isEmpty
+        !service.choosingFileDropDestination && presentedMediaSession == nil && !shelf.items.isEmpty
     }
 
     /// An archive's outcome, below whatever the shelf shows.
@@ -40,14 +35,17 @@ struct NotchFilesView: View {
 
     var body: some View {
         VStack(spacing: NotchLayout.rowSpacing) {
-            if choosesDropDestination {
-                HStack(spacing: NotchFileToolsSupport.dropSpacing) {
-                    dropDestination(FeatureStrings.notch(l10n.language).files, symbol: "tray.and.arrow.down",
-                                    selected: !service.targetsMediaDrop)
-                    dropDestination(text.optimizeMedia, symbol: "wand.and.stars", selected: service.targetsMediaDrop,
-                                    available: archives.canAcceptMediaDrop)
+            if service.choosingFileDropDestination {
+                GeometryReader { geometry in
+                    let destinations = service.fileDropDestinations
+                    let width = NotchFileToolsSupport.dropWidth(contentWidth: geometry.size.width,
+                                                                  count: destinations.count)
+                    HStack(spacing: NotchFileToolsSupport.dropSpacing) {
+                        ForEach(destinations, id: \.self) { destination in
+                            dropDestination(destination).frame(width: width)
+                        }
+                    }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let session = presentedMediaSession {
                 MediaWorkspaceView(compact: true, onClose: archives.closeMedia,
                                    media: media, initialInputs: session.inputs,
@@ -122,10 +120,26 @@ struct NotchFilesView: View {
         if archives.mediaContentHeight != previous { service.refreshPresentation() }
     }
 
-    private func dropDestination(_ title: String, symbol: String, selected: Bool, available: Bool = true) -> some View {
-        VStack(spacing: 12) {
+    private func dropDestination(_ destination: NotchFileDropDestination) -> some View {
+        let title: String
+        let symbol: String
+        switch destination {
+        case .shelf:
+            title = FeatureStrings.notch(l10n.language).files
+            symbol = "tray.and.arrow.down"
+        case .airDrop:
+            title = "AirDrop"
+            symbol = "dot.radiowaves.left.and.right"
+        case .optimizeMedia:
+            title = text.optimizeMedia
+            symbol = "wand.and.stars"
+        }
+        let selected = service.targetedFileDrop == destination
+        let available = destination != .optimizeMedia || archives.canAcceptMediaDrop
+        return VStack(spacing: 12) {
             Image(systemName: symbol).font(.system(size: 28, weight: .light))
             Text(title).font(.callout.weight(.medium)).multilineTextAlignment(.center)
+                .lineLimit(2).minimumScaleFactor(0.8)
             if !available { Text(l10n.s.mediaRunning).font(.caption).foregroundStyle(.secondary) }
         }
         .padding(12)
@@ -205,6 +219,10 @@ struct NotchFilesView: View {
                 .disabled(!shelf.hasFilesForActions || !archives.canAcceptMediaDrop)
                 .popover(isPresented: $showingActions) { fileActions.padding(14).frame(width: 270) }
             }
+            NotchIconButton(symbol: "dot.radiowaves.left.and.right", title: "AirDrop") {
+                service.airDropShelfFiles(shelf.fileURLsForActions())
+            }
+            .disabled(!shelf.hasFilesForActions)
             NotchIconButton(symbol: "square.and.arrow.up", title: l10n.s.shelfActionShare) {
                 shareAnchor.present(shelf.fileURLsForActions())
             }

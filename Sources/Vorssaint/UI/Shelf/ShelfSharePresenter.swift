@@ -53,3 +53,122 @@ final class ShelfSharePresenter: NSObject, NSSharingServicePickerDelegate {
         return picker
     }
 }
+
+/// Opens the native recipient picker after the drag callback returns. Temporary
+/// files from AppKit promises stay alive until the sharing service finishes.
+final class ShelfAirDropPresenter: NSObject, NSSharingServiceDelegate {
+    private var pending = false
+    private var service: NSSharingService?
+    private var stagingDirectory: URL?
+    private static let maximumPromisedFiles = 64
+
+    var isAvailable: Bool { !pending && service == nil }
+
+    func canOffer(_ pasteboard: NSPasteboard) -> Bool {
+        let urls = ShelfService.shared.fileURLs(from: pasteboard)
+        if !urls.isEmpty {
+            return urls.count >= (pasteboard.pasteboardItems?.count ?? 0)
+                && !pasteboard.canReadObject(forClasses: [NSFilePromiseReceiver.self], options: nil)
+        }
+        let types = Set(NSFilePromiseReceiver.readableDraggedTypes.map { NSPasteboard.PasteboardType($0) })
+        guard let items = pasteboard.pasteboardItems, !items.isEmpty else { return false }
+        return items.allSatisfy { !types.isDisjoint(with: $0.types) }
+            && pasteboard.canReadObject(forClasses: [NSFilePromiseReceiver.self], options: nil)
+    }
+
+    func accept(_ pasteboard: NSPasteboard, canContinue: @escaping () -> Bool) -> Bool {
+        guard isAvailable, canOffer(pasteboard) else { return false }
+        let urls = ShelfService.shared.fileURLs(from: pasteboard)
+        if !urls.isEmpty { return share(urls, canContinue: canContinue) }
+
+        let receivers = pasteboard.readObjects(forClasses: [NSFilePromiseReceiver.self], options: nil)
+            as? [NSFilePromiseReceiver] ?? []
+        guard !receivers.isEmpty, receivers.count <= Self.maximumPromisedFiles else { return false }
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VorssaintAirDrop-\(UUID().uuidString)", isDirectory: true)
+        let staged = root.appendingPathComponent("Files", isDirectory: true)
+        guard PrivateFileStore.createDirectory(at: root, container: root) else { return false }
+        guard let transfer = ShelfFilePromiseTransfer(temporaryDirectory: root, storeDirectory: staged,
+                                                      maximumFiles: Self.maximumPromisedFiles,
+                                                      completion: { [weak self] result in
+            guard let self else {
+                try? FileManager.default.removeItem(at: root)
+                return
+            }
+            guard canContinue(), !result.failed, !result.urls.isEmpty else {
+                self.finish()
+                if canContinue() { self.reportUnavailable() }
+                return
+            }
+            self.present(result.urls)
+        }) else {
+            try? FileManager.default.removeItem(at: root)
+            return false
+        }
+        stagingDirectory = root
+        pending = true
+        guard transfer.receive(receivers) else {
+            finish()
+            return false
+        }
+        return true
+    }
+
+    func share(_ urls: [URL], canContinue: @escaping () -> Bool) -> Bool {
+        guard isAvailable, !urls.isEmpty, urls.allSatisfy(\.isFileURL) else { return false }
+        pending = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            guard canContinue() else { self.finish(); return }
+            self.present(urls)
+        }
+        return true
+    }
+
+    private func present(_ urls: [URL]) {
+        guard let sharing = NSSharingService(named: .sendViaAirDrop),
+              sharing.canPerform(withItems: urls) else {
+            finish()
+            reportUnavailable()
+            return
+        }
+        pending = false
+        service = sharing
+        sharing.delegate = self
+        NSApp.activate(ignoringOtherApps: true)
+        sharing.perform(withItems: urls)
+    }
+
+    func sharingService(_ sharingService: NSSharingService, didShareItems items: [Any]) {
+        if sharingService === service { finish() }
+    }
+
+    func sharingService(_ sharingService: NSSharingService, didFailToShareItems items: [Any], error: any Error) {
+        guard sharingService === service else { return }
+        finish()
+        let underlying = error as NSError
+        if underlying.domain != NSCocoaErrorDomain || underlying.code != NSUserCancelledError {
+            NSApp.presentError(error)
+        }
+    }
+
+    private func finish() {
+        pending = false
+        service = nil
+        if let stagingDirectory {
+            try? FileManager.default.removeItem(at: stagingDirectory)
+            self.stagingDirectory = nil
+        }
+    }
+
+    private func reportUnavailable() {
+        let strings = ShelfPromiseDeliveryStrings.localized(L10n.shared.language)
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "AirDrop"
+        alert.informativeText = FeatureStrings.notchFiles(L10n.shared.language).airDropUnavailable
+        alert.addButton(withTitle: strings.okButton)
+        if let window = NSApp.keyWindow { alert.beginSheetModal(for: window) }
+        else { NSApp.activate(ignoringOtherApps: true); alert.runModal() }
+    }
+}
