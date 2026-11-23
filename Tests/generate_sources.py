@@ -103,6 +103,7 @@ def main():
           + "extension SettingsFileTests {\nenum Backup {\n"
           + "".join(declaration(backup, prefix) for prefix in [
               "    static func write(to ", "    static func readSettings(at ",
+              "    static func backupData(format:", "    static func decodeSettings(",
               "    static func apply(settings:", "    static var configFileURL:", "    static func writeConfigFile(",
               "    static func applyConfigFileAtLaunch(", "    static func anotherInstanceIsRunning("])
           + "}\n}\n")

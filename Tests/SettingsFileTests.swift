@@ -39,6 +39,13 @@ enum SettingsFileTests {
             defaults.set("light", forKey: DefaultsKey.appearance)
             let delayKey = DefaultsKey.keepAwakePowerDisconnectDelay
             defaults.set(20, forKey: delayKey)
+            let cloudBackup = try Backup.backupData(format: .binary, from: defaults)
+            let fileBackup = try Backup.backupData(format: .xml, from: defaults)
+            let restoredCloud = Backup.decodeSettings(cloudBackup) ?? [:]
+            let restoredFile = Backup.decodeSettings(fileBackup) ?? [:]
+            suite.expect(!restoredFile.isEmpty
+                         && NSDictionary(dictionary: restoredCloud).isEqual(to: restoredFile),
+                         "cloud and file backup formats restore the same complete portable settings")
             suite.expect(Backup.write(to: target, from: defaults),
                          "an explicit export bootstraps its parent folder and snapshot")
             let permissions = try manager.attributesOfItem(atPath: target.path)[.posixPermissions] as? NSNumber
