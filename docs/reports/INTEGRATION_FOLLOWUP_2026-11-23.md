@@ -7,6 +7,7 @@ Work on `test/vorssaint-integrations` extends the original Developer preview. Th
 | Shelf, Notch, Pointer Input, Linear Scroll, Metrics and Feature Catalog harnesses | 71,720 assertions passed after updating the catalog tests and adding profile override coverage. |
 | Focused rerun after USB identity assertions and Developer feature availability changes | 2,061 assertions passed across Metrics, Linear Scroll and Feature Catalog. |
 | Isolated comparison with pre-change commit `067671c7` | The unchanged Notch suite passed 67,933 assertions. The changed Notch suite passed 67,934 assertions on rerun. An earlier run saw transient duplicate slider callbacks, with no slider source changes. |
+| Merged source `3c3f87cc` | Developer Swift type check passed. Metrics, Pointer Input, Linear Scroll, Shelf, and Feature Catalog passed. The full Notch suite recorded six duplicate edit callbacks in `NotchLevelTrackingTests`. The slider test is identical to upstream. The preview uses a focused file-routing suite while the existing full CI remains unchanged. |
 | Original Developer build | GitHub run [44720837848](https://github.com/Xarber/vorssaint-utils/actions/runs/44720837848) passed for `ac3ff11b`. The original artifact predates this follow-up. |
 | Follow-up runtime | Native interactions, accessibility, physical USB devices, Nearby transfers, and account flows are pending verification. |
 
