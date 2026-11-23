@@ -147,3 +147,57 @@ test('private records use the app-scoped token and match revisions', async conte
   assert.equal((await request('/mouse-profiles', { method: 'DELETE', headers: mutationHeaders })).status, 204);
   assert.deepEqual(calls, ['GET', 'PUT', 'DELETE']);
 });
+
+test('Advanced backups span private records and restore atomically', async context => {
+  const records = new Map();
+  let failedPiece = false;
+  const recordFetch = async (url, { method, headers, body }) => {
+    assert.equal(headers.Authorization, 'Bearer fixture-token');
+    assert.equal(url.origin, issuer);
+    const id = url.pathname.split('/').at(-1);
+    const record = records.get(id);
+    if (method === 'GET') return Response.json(record ?? {}, { status: record ? 200 : 404 });
+    assert.equal(headers['If-Match'], '"' + (record?.revision ?? 0) + '"');
+    if (method === 'DELETE') {
+      records.delete(id);
+      return Response.json({ ok: true });
+    }
+    const payload = JSON.parse(body);
+    assert.equal(payload.public, false);
+    assert.ok(Buffer.byteLength(JSON.stringify(payload.data)) < 60_000);
+    if (failedPiece && id.startsWith('backup-') && id.endsWith('-1')) return Response.json({}, { status: 503 });
+    const revision = (record?.revision ?? 0) + 1;
+    records.set(id, { ...payload, revision });
+    return Response.json({ revision, public: false });
+  };
+  const { request, pickup, callback, cookie } = await fixture(context, recordFetch);
+  assert.equal((await request('/backup')).status, 401);
+  assert.equal((await request(callback, { headers: { Cookie: cookie } })).status, 200);
+  const { session } = await (await request('/pickup', post(pickup))).json();
+  const headers = { Authorization: 'Bearer ' + session };
+  const archive = Buffer.concat([Buffer.from('bplist00'), Buffer.alloc(90_000, 31)]).toString('base64');
+  const updated = Buffer.concat([Buffer.from('bplist00'), Buffer.alloc(90_000, 32)]).toString('base64');
+  const send = (value, revision) => request('/backup', { method: 'PUT',
+    headers: { ...headers, 'Content-Type': 'application/json', 'If-Match': revision },
+    body: JSON.stringify({ archive: value }) });
+  assert.equal((await request('/backup', { headers })).status, 404);
+  assert.equal((await send('not a backup', '"0"')).status, 400);
+  assert.equal((await send(archive, '"0"')).headers.get('etag'), '"1"');
+  assert.equal(records.size, 4);
+  assert.equal((await request('/backup', { method: 'HEAD', headers })).headers.get('etag'), '"1"');
+  assert.deepEqual(await (await request('/backup', { headers })).json(), { archive });
+  assert.equal((await send(updated, '"0"')).status, 409);
+  failedPiece = true;
+  assert.equal((await send(updated, '"1"')).status, 503);
+  assert.equal(records.size, 4);
+  assert.deepEqual(await (await request('/backup', { headers })).json(), { archive });
+  failedPiece = false;
+  assert.equal((await send(updated, '"1"')).headers.get('etag'), '"2"');
+  assert.deepEqual(await (await request('/backup', { headers })).json(), { archive: updated });
+  assert.equal(records.size, 4);
+  assert.equal((await request('/backup', { method: 'DELETE',
+    headers: { ...headers, 'If-Match': '"2"' } })).status, 204);
+  assert.equal((await request('/backup', { headers })).status, 404);
+  assert.equal(records.size, 1);
+  assert.equal((await send(archive, '"0"')).headers.get('etag'), '"4"');
+});

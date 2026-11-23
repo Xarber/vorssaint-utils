@@ -352,7 +352,6 @@ if (( TEST )); then
         Sources/Vorssaint/Core/ShortcutSettingsStrings.swift
         Sources/Vorssaint/Core/SwitcherShortcutStrings.swift
         Sources/Vorssaint/Core/SettingsBackupSupport.swift
-        Sources/Vorssaint/Core/XCenterSettingsSnapshot.swift
         Sources/Vorssaint/Core/BackupStrings.swift
         Sources/Vorssaint/Core/SnippetStrings.swift
         Sources/Vorssaint/Core/AlertSoundStrings.swift

@@ -74,7 +74,6 @@ struct MouseSettings: View {
                 if let selectedProfile, appOverrides.scrollProfiles[selectedProfile] != nil {
                     profileOverrides(selectedProfile)
                 } else {
-                    MouseProfileSyncSettings()
                     if !legendFeatures.isEmpty {
                         legendCard
                     }

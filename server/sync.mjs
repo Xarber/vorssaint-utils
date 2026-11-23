@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import * as oidc from 'openid-client';
+import { exchangeBackup, maximumRequest } from './backup.mjs';
 
 const issuer = new URL('https://id.xcenter.it');
 const origin = 'https://vorssaint.xcenter.it';
@@ -170,6 +171,17 @@ export function createSyncServer({ clientID, clientSecret, discover = oidc.disco
       if (method === 'POST' && path === base + '/signout') {
         if (key) sessions.delete(key);
         return answer(res, 204);
+      }
+
+      if (path === base + '/backup' && ['GET', 'HEAD', 'PUT', 'DELETE'].includes(method)) {
+        const session = key && sessions.get(key);
+        if (!session) return answer(res, 401);
+        if (req.headers.origin) return answer(res, 403);
+        const input = method === 'PUT' ? await readJSON(req, maximumRequest) : undefined;
+        const result = await exchangeBackup({ method, revision: req.headers['if-match'], input,
+          recordFetch, clientID, accessToken: session.accessToken, issuer });
+        if (result.revision) res.setHeader('ETag', result.revision);
+        return answer(res, result.status, result.body);
       }
 
       if (path === base + '/mouse-profiles' && ['GET', 'PUT', 'DELETE'].includes(method)) {

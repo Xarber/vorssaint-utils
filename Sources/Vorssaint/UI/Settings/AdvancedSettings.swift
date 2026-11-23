@@ -76,6 +76,11 @@ struct AdvancedSettings: View {
                 }
             }
 
+            AppDataSyncSettings { settings in
+                pendingImport = settings
+                showImportConfirm = true
+            }
+
             Section(l10n.s.advancedResetSection) {
                 Text(l10n.s.advancedResetDescription)
                     .font(.caption)

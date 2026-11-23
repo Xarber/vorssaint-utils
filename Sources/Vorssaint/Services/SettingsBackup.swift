@@ -25,16 +25,8 @@ enum SettingsBackup {
 
     /// Writes the backup file; false when it could not be saved.
     static func write(to url: URL, from defaults: UserDefaults = .standard) -> Bool {
-        // object(forKey:) sees through to registered defaults, so the file is
-        // a complete snapshot: importing it reproduces this exact setup even
-        // where the user never touched a control.
-        let payload = SettingsBackupSupport.payload(appVersion: AppInfo.version) {
-            defaults.object(forKey: $0)
-        }
         do {
-            let data = try PropertyListSerialization.data(fromPropertyList: payload,
-                                                          format: .xml,
-                                                          options: 0)
+            let data = try backupData(format: .xml, from: defaults)
             let manager = FileManager.default
             let target = url.resolvingSymlinksInPath()
             // attributesOfItem sees a dangling link, too. Never replace the link
@@ -85,6 +77,21 @@ enum SettingsBackup {
         }
     }
 
+    /// The same portable backup format is used for files and cloud storage.
+    static func backupData(format: PropertyListSerialization.PropertyListFormat,
+                           from defaults: UserDefaults = .standard) throws -> Data {
+        let payload = SettingsBackupSupport.payload(appVersion: AppInfo.version) {
+            defaults.object(forKey: $0)
+        }
+        return try PropertyListSerialization.data(fromPropertyList: payload, format: format, options: 0)
+    }
+
+    static func decodeSettings(_ data: Data) -> [String: Any]? {
+        guard let payload = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+            as? [String: Any] else { return nil }
+        return SettingsBackupSupport.sanitizedSettings(from: payload)
+    }
+
     /// Shows the open panel; nil = user cancelled.
     static func runImportPanel() -> URL? {
         let panel = NSOpenPanel()
@@ -115,12 +122,8 @@ enum SettingsBackup {
         coordinator.coordinate(readingItemAt: url, options: .withoutChanges, error: &error) { readURL in
             coordinatedData = read(readURL)
         }
-        guard let data = coordinatedData ?? read(url),
-              let payload = try? PropertyListSerialization.propertyList(from: data,
-                                                                        options: [],
-                                                                        format: nil) as? [String: Any]
-        else { return nil }
-        return SettingsBackupSupport.sanitizedSettings(from: payload)
+        guard let data = coordinatedData ?? read(url) else { return nil }
+        return decodeSettings(data)
     }
 
     /// Applies the file's values and relaunches.

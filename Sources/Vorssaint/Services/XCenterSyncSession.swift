@@ -85,7 +85,7 @@ final class XCenterSyncSession: ObservableObject {
     func signOut() {
         let token = session
         clearSession()
-        message = "Signed out. Local profiles are still on this Mac."
+        message = "Signed out. Your local data is still on this Mac."
         if let token {
             Task { _ = try? await Self.request("signout", method: "POST", body: nil, session: token) }
         }
@@ -94,42 +94,38 @@ final class XCenterSyncSession: ObservableObject {
     func upload() {
         guard let session, !working else { return }
         run { [self] in
-            let snapshot = XCenterSettingsSnapshot.snapshot()
-            let revision = try await store.fetch(accessToken: session)?.revision ?? "0"
+            ScratchpadService.shared.prepareForSettingsBackup()
+            let backup = try SettingsBackup.backupData(format: .binary)
+            let revision = try await store.revision(accessToken: session) ?? "0"
             try Task.checkCancellation()
-            _ = try await store.save(snapshot, replacing: revision, accessToken: session)
-            message = "Mouse profiles saved to X-Center ID."
+            _ = try await store.save(backup, replacing: revision, accessToken: session)
+            message = "App data backed up to X-Center ID."
         }
     }
 
-    func importProfiles() {
+    func loadBackup(_ review: @escaping @MainActor ([String: Any]) -> Void) {
         guard let session, !working else { return }
         run { [self] in
             guard let record = try await store.fetch(accessToken: session) else {
-                message = "There are no saved mouse profiles for this account."
+                message = "There is no cloud backup for this account."
                 return
             }
             try Task.checkCancellation()
-            let defaults = UserDefaults.standard
-            let key = DefaultsKey.scrollDirectionProfiles
-            let local = defaults.dictionary(forKey: key) ?? [:]
-            defaults.set(local.merging(record.snapshot.mouseProfiles) { _, saved in saved }, forKey: key)
-            MouseAppExceptions.shared.reload()
-            ScrollInverter.shared.syncWithPreferences()
-            SmoothScrollService.shared.syncWithPreferences()
-            MouseAccelerationService.shared.syncWithPreferences()
-            message = "Saved mouse profiles imported."
+            guard let settings = SettingsBackup.decodeSettings(record.archive), !settings.isEmpty else {
+                throw Failure.invalidResponse
+            }
+            review(settings)
         }
     }
 
-    func deleteUploadedProfiles() {
+    func deleteBackup() {
         guard let session, !working else { return }
         run { [self] in
-            if let record = try await store.fetch(accessToken: session) {
+            if let revision = try await store.revision(accessToken: session) {
                 try Task.checkCancellation()
-                try await store.delete(revision: record.revision, accessToken: session)
+                try await store.delete(revision: revision, accessToken: session)
             }
-            message = "Saved cloud profiles removed."
+            message = "Cloud backup removed."
         }
     }
 
@@ -162,7 +158,9 @@ final class XCenterSyncSession: ObservableObject {
                 clearSession()
                 message = "Check your account permissions and sign in again."
             } catch XCenterSettingsStore.Failure.conflict {
-                message = "The saved profiles changed. Review them before trying again."
+                message = "The cloud backup changed. Try again to use the latest revision."
+            } catch XCenterSettingsStore.Failure.tooLarge {
+                message = "This backup exceeds the available cloud space. You can still export it to a file."
             } catch Failure.rejected {
                 message = "Sign-in was declined or the storage permission is unavailable."
             } catch {

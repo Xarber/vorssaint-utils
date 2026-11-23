@@ -7,7 +7,7 @@ import Foundation
 /// the token. It is deliberately independent of browser sign-in and storage.
 struct XCenterSettingsStore: Sendable {
     struct Record: Sendable {
-        let snapshot: XCenterSettingsSnapshot.Snapshot
+        let archive: Data
         let revision: String
     }
 
@@ -16,21 +16,28 @@ struct XCenterSettingsStore: Sendable {
     }
 
     private struct Payload: Codable {
-        let data: XCenterSettingsSnapshot.Snapshot
-        let `public`: Bool
+        let archive: Data
     }
 
-    private let recordURL = URL(string: "https://vorssaint.xcenter.it/auth/xcenter/mouse-profiles")!
+    static let maximumArchiveBytes = 6 * 1024 * 1024
+    private static let maximumEnvelopeBytes = (maximumArchiveBytes / 3) * 4 + 1024
+
+    private let recordURL = URL(string: "https://vorssaint.xcenter.it/auth/xcenter/backup")!
 
     func fetch(accessToken: String) async throws -> Record? {
         try await exchange(method: "GET", accessToken: accessToken)
     }
 
-    func save(_ snapshot: XCenterSettingsSnapshot.Snapshot, replacing revision: String,
+    func revision(accessToken: String) async throws -> String? {
+        try await exchange(method: "HEAD", accessToken: accessToken)?.revision
+    }
+
+    func save(_ archive: Data, replacing revision: String,
               accessToken: String) async throws -> Record {
-        guard let snapshot = XCenterSettingsSnapshot.validated(snapshot) else { throw Failure.invalidResponse }
-        let bytes = try JSONEncoder().encode(Payload(data: snapshot, public: false))
-        guard bytes.count <= XCenterSettingsSnapshot.maximumBodyBytes else { throw Failure.tooLarge }
+        guard archive.count <= Self.maximumArchiveBytes else { throw Failure.tooLarge }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let bytes = try encoder.encode(Payload(archive: archive))
         guard let record = try await exchange(method: "PUT", accessToken: accessToken, revision: revision, body: bytes) else {
             throw Failure.invalidResponse
         }
@@ -43,7 +50,7 @@ struct XCenterSettingsStore: Sendable {
 
     private func exchange(method: String, accessToken: String, revision: String? = nil, body: Data? = nil) async throws -> Record? {
         guard !accessToken.isEmpty else { throw Failure.notAuthorized }
-        var request = URLRequest(url: recordURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
+        var request = URLRequest(url: recordURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 90)
         request.httpMethod = method
         request.setValue("Bearer " + accessToken, forHTTPHeaderField: "Authorization")
         if let revision {
@@ -64,20 +71,21 @@ struct XCenterSettingsStore: Sendable {
         switch response.statusCode {
         case 401, 403: throw Failure.notAuthorized
         case 204 where method == "DELETE": return nil
-        case 404 where method == "GET": return nil
+        case 404 where method == "GET" || method == "HEAD": return nil
         case 409, 412: throw Failure.conflict
+        case 413, 507: throw Failure.tooLarge
         case 200, 201: break
         default: throw Failure.invalidResponse
         }
-        guard data.count <= XCenterSettingsSnapshot.maximumBodyBytes,
-              let etag = response.value(forHTTPHeaderField: "ETag"),
-              etag.count > 2, etag.first == "\"", etag.last == "\"",
-              let payload = try? JSONDecoder().decode(Payload.self, from: data),
-              !payload.public,
-              let snapshot = XCenterSettingsSnapshot.validated(payload.data) else { throw Failure.invalidResponse }
+        guard let etag = response.value(forHTTPHeaderField: "ETag"), etag.count > 2, etag.count <= 66,
+              etag.first == "\"", etag.last == "\"" else { throw Failure.invalidResponse }
         let revision = String(etag.dropFirst().dropLast())
         guard revision.utf8.allSatisfy({ (48...57).contains($0) }) else { throw Failure.invalidResponse }
-        return Record(snapshot: snapshot, revision: revision)
+        if method == "HEAD" { return Record(archive: Data(), revision: revision) }
+        guard data.count <= Self.maximumEnvelopeBytes,
+              let payload = try? JSONDecoder().decode(Payload.self, from: data),
+              payload.archive.count <= Self.maximumArchiveBytes else { throw Failure.invalidResponse }
+        return Record(archive: payload.archive, revision: revision)
     }
 
     private final class DenyRedirects: NSObject, URLSessionTaskDelegate {

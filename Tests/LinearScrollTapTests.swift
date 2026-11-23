@@ -171,11 +171,6 @@ enum LinearScrollTapTests {
                      "pointer acceleration round-trips without a wheel distance and can override Global")
         suite.expect(!MouseScrollDirectionProfile.Acceleration.system.disablesAcceleration(global: true),
                      "the macOS acceleration override restores the system setting even when Global is linear")
-        let snapshot = XCenterSettingsSnapshot.Snapshot(version: 1, mouseProfiles: ["com.example.editor": "system,reversed,,linear"])
-        suite.expect(XCenterSettingsSnapshot.validated(snapshot) == snapshot,
-                     "settings sync accepts a portable bundled-app profile")
-        suite.expect(XCenterSettingsSnapshot.validated(.init(version: 1, mouseProfiles: ["/private/device/path": "inherited,inherited"])) == nil,
-                     "settings sync rejects machine paths even when the profile itself is valid")
 
         // Notches as a plain Bluetooth wheel sends them with macOS acceleration
         // on: slow, medium and fast turns of the same single notch.
