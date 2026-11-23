@@ -324,6 +324,7 @@ extension AppFeature {
     /// Settings destination before the project compiles.
     var settingsDestination: FeatureSettingsDestination {
         switch self {
+        case .localSend, .quickShare, .androidTransfer: return FeatureSettingsDestination(.shelf)
         case .switcher: return FeatureSettingsDestination(.switcher, sectionAnchor: .switcher)
         case .dockPreview: return FeatureSettingsDestination(.dock, sectionAnchor: .dock)
         case .dockClick: return FeatureSettingsDestination(.dock, sectionAnchor: .dockClick)
@@ -467,7 +468,7 @@ enum FeatureVisibilitySupport {
         case .quitProtection: return [.quitWindowProtection]
         case .clipboard: return [.clipboardHistory, .pastePlain, .finderCutPaste]
         case .cutPaste: return [.finderCutPaste, .finderRename]
-        case .shelf: return [.shelf]
+        case .shelf: return [.shelf, .localSend, .quickShare, .androidTransfer]
         case .media: return [.mediaTools]
         case .quickTools: return [.quickLauncher, .quickToggles, .quitApps, .micMute,
                                   .cameraPreview, .wallpaper, .scratchpad, .cleaningMode]

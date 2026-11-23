@@ -20,7 +20,7 @@ enum AppFeature: String, CaseIterable {
          mouseClickDebounce, keyboardDebounce, textSnippets, superKey, quitWindowProtection
     // Clipboard and files
     case clipboardHistory, pastePlain, finderCutPaste, finderRename, shelf, urlCleaner,
-         diskImageInstaller
+         diskImageInstaller, localSend, quickShare, androidTransfer
     // Sound
     case mixer, soundOutputSwitcher, audioPriority, micMute, musicBlock
     // Energy and display
@@ -107,7 +107,7 @@ extension AppFeature {
              .keyboardDebounce, .textSnippets, .superKey, .quitWindowProtection, .mouseClickDebounce:
             return .mouseKeyboard
         case .clipboardHistory, .pastePlain, .finderCutPaste, .finderRename, .shelf, .urlCleaner,
-             .diskImageInstaller:
+             .diskImageInstaller, .localSend, .quickShare, .androidTransfer:
             return .clipboardFiles
         case .mixer, .soundOutputSwitcher, .audioPriority, .micMute, .musicBlock:
             return .sound
@@ -129,6 +129,9 @@ extension AppFeature {
 
     var symbolName: String {
         switch self {
+        case .localSend: return "point.3.connected.trianglepath.dotted"
+        case .quickShare: return "arrow.left.arrow.right.circle"
+        case .androidTransfer: return "cable.connector"
         case .switcher: return "rectangle.on.rectangle"
         case .dockPreview: return "dock.rectangle"
         case .dockClick: return "dock.arrow.down.rectangle"
@@ -219,10 +222,18 @@ extension AppFeature {
 
     var isBeta: Bool { self == .fanControl || self == .killProcess }
 
+    var isSupportedInBuild: Bool {
+#if VORSSAINT_DEVELOPMENT
+        true
+#else
+        self != .localSend && self != .quickShare && self != .androidTransfer
+#endif
+    }
+
     /// Availability read straight from defaults. Existing features stay
     /// available on update; explicit beta opt-ins may start unavailable.
     var isAvailable: Bool {
-        isAvailable(in: .standard)
+        isSupportedInBuild && isAvailable(in: .standard)
     }
 
     func isAvailable(in defaults: UserDefaults) -> Bool {
@@ -282,6 +293,7 @@ extension AppFeature {
                                       DefaultsKey.finderPasteImageAsFile]
         case .finderRename: return [DefaultsKey.finderRenameEnabled]
         case .shelf: return [DefaultsKey.shelfEnabled]
+        case .localSend, .quickShare, .androidTransfer: return []
         case .urlCleaner: return [DefaultsKey.urlCleanerEnabled]
         case .soundOutputSwitcher: return [DefaultsKey.soundOutputSwitcherEnabled]
         case .audioPriority: return [DefaultsKey.audioPriorityOutputEnabled,
@@ -386,7 +398,7 @@ extension AppFeature {
         case .mixer: return [.audioCapture, .accessibility]
         case .musicBlock: return [.accessibility]
         case .monitorCPU, .monitorMemory, .monitorDisk, .monitorPower: return [.notifications]
-        case .clipboardHistory, .shelf, .urlCleaner,
+        case .clipboardHistory, .shelf, .urlCleaner, .localSend, .quickShare, .androidTransfer,
              .soundOutputSwitcher, .audioPriority,
              .extraBrightness, .bluetoothSleep, .quickLauncher, .colorPicker, .micMute, .mediaTools,
              .scratchpad, .wallpaper, .monitorGPU, .monitorNetwork, .connectedDevices, .fanControl, .killProcess,
@@ -491,7 +503,8 @@ extension AppFeature {
              .connectedDevices:
             return true
         case .focusFollowsMouse, .scrollHorizontal, .scrollZoom, .linearScroll, .scrollSpeed, .diskImageInstaller, .audioPriority,
-             .wallpaper, .killProcess, .portManager, .fanControl, .notchMascot, .spacesOrder, .quitApps:
+             .wallpaper, .killProcess, .portManager, .fanControl, .notchMascot, .spacesOrder, .quitApps,
+             .localSend, .quickShare, .androidTransfer:
             return false
         }
     }

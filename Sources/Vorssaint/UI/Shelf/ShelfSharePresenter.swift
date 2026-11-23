@@ -33,19 +33,25 @@ final class ShelfSharePresenter: NSObject, NSSharingServicePickerDelegate {
         return true
     }
 
-#if VORSSAINT_DEVELOPMENT
     func sharingServicePicker(_ picker: NSSharingServicePicker, sharingServicesForItems items: [Any],
                               proposedSharingServices proposed: [NSSharingService]) -> [NSSharingService] {
+#if VORSSAINT_DEVELOPMENT
         let files = items.compactMap { $0 as? URL }.filter(\.isFileURL)
-        guard LocalSendWindow.available, !files.isEmpty, files.count == items.count,
+        guard AppFeature.localSend.isAvailable, LocalSendSession.available, !files.isEmpty, files.count == items.count,
               let icon = NSImage(systemSymbolName: "point.3.connected.trianglepath.dotted",
                                  accessibilityDescription: "LocalSend") else { return proposed }
         let localSend = NSSharingService(title: "LocalSend", image: icon, alternateImage: nil) {
-            DispatchQueue.main.async { LocalSendWindow.shared.show(files) }
+            DispatchQueue.main.async {
+                guard LocalSendSession.shared.stage(files) else { return }
+                if NotchSupport.showsFiles() { NotchService.shared.open(.files) }
+            }
         }
         return proposed + [localSend]
-    }
+#else
+        return proposed
 #endif
+    }
+
 
     func sharingServicePicker(_ sharingServicePicker: NSSharingServicePicker,
                               didChoose service: NSSharingService?) {

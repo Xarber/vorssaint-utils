@@ -4,36 +4,25 @@
 #if VORSSAINT_DEVELOPMENT
 import AppKit
 import Darwin
+import IOKit
 import SwiftUI
 
-/// Local Developer build for validating the MTP helper on real devices.
-final class AndroidTransferWindow: NSObject, NSWindowDelegate {
-    static let shared = AndroidTransferWindow()
-    static var available: Bool { helper.map { FileManager.default.isExecutableFile(atPath: $0.path) } == true }
+enum AndroidUSBFeature {
+    static func sync() { AndroidTransferBrowser.shared.syncFeature() }
+}
 
-    private static var helper: URL? { Bundle.main.url(forAuxiliaryExecutable: "vorssaint-mtp") }
-    private var window: NSWindow?
-    private var browser: AndroidTransferBrowser?
+struct AndroidTransferSettings: View {
+    @ObservedObject private var browser = AndroidTransferBrowser.shared
 
-    func show() {
-        guard let helper = Self.helper, Self.available else { return }
-        if window == nil {
-            let browser = AndroidTransferBrowser(helper: helper)
-            let host = NSHostingController(rootView: AndroidTransferView(browser: browser))
-            let window = NSWindow(contentViewController: host)
-            window.title = "Android File Transfer"
-            window.setContentSize(NSSize(width: 620, height: 440))
-            window.isReleasedWhenClosed = false
-            window.delegate = self
-            self.browser = browser
-            self.window = window
-            window.center()
+    var body: some View {
+        if browser.available {
+            DisclosureGroup("Android USB Transfer") {
+                AndroidTransferView(browser: browser).frame(height: 350)
+            }
+        } else {
+            Text("This build needs the Android USB helper.")
         }
-        NSApp.activate(ignoringOtherApps: true)
-        window?.makeKeyAndOrderFront(nil)
     }
-
-    func windowWillClose(_ notification: Notification) { browser?.cancel() }
 }
 
 private struct AndroidTransferEntry: Identifiable {
@@ -70,6 +59,10 @@ private struct AndroidTransferEntry: Identifiable {
 }
 
 private final class AndroidTransferBrowser: ObservableObject {
+    static let shared = AndroidTransferBrowser(helper: Bundle.main.url(forAuxiliaryExecutable: "vorssaint-mtp"))
+    private var notificationPort: IONotificationPortRef?
+    private var iterators: [io_iterator_t] = []
+    private var refreshWork: DispatchWorkItem?
     @Published private(set) var entries: [AndroidTransferEntry] = []
     @Published var selection = Set<String>()
     @Published private(set) var moveCount = 0
@@ -79,7 +72,8 @@ private final class AndroidTransferBrowser: ObservableObject {
     @Published private(set) var busy = false
     @Published private(set) var message = ""
     @Published private(set) var progress: Double?
-    private let helper: URL
+    private let helper: URL?
+    var available: Bool { helper.map { FileManager.default.isExecutableFile(atPath: $0.path) } == true }
     private var process: Process?
     private var pendingMove: (ids: [AndroidTransferEntry], parent: String, storage: String)?
     private var parentID: String { folders.last?.id ?? String(UInt32.max) }
@@ -88,7 +82,47 @@ private final class AndroidTransferBrowser: ObservableObject {
     }
     private var cancelled = false
 
-    init(helper: URL) { self.helper = helper }
+    init(helper: URL?) { self.helper = helper }
+
+    func syncFeature() {
+        guard AppFeature.androidTransfer.isAvailable, available else {
+            refreshWork?.cancel()
+            iterators.forEach { IOObjectRelease($0) }
+            iterators = []
+            if let notificationPort { IONotificationPortDestroy(notificationPort) }
+            notificationPort = nil
+            cancel()
+            return
+        }
+        guard notificationPort == nil,
+              let port = IONotificationPortCreate(kIOMainPortDefault) else { return }
+        IONotificationPortSetDispatchQueue(port, .main)
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        for change in [kIOFirstMatchNotification, kIOTerminatedNotification] {
+            var iterator: io_iterator_t = 0
+            if IOServiceAddMatchingNotification(port, change, IOServiceMatching("IOUSBHostDevice"), { context, iterator in
+                while case let entry = IOIteratorNext(iterator), entry != 0 { IOObjectRelease(entry) }
+                guard let context else { return }
+                Unmanaged<AndroidTransferBrowser>.fromOpaque(context).takeUnretainedValue().queueDetection()
+            }, context, &iterator) == KERN_SUCCESS {
+                while case let entry = IOIteratorNext(iterator), entry != 0 { IOObjectRelease(entry) }
+                iterators.append(iterator)
+            }
+        }
+        notificationPort = port
+        queueDetection()
+    }
+
+    private func queueDetection() {
+        refreshWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, AppFeature.androidTransfer.isAvailable, self.device == nil else { return }
+            if self.busy { self.queueDetection() }
+            else { self.refresh() }
+        }
+        refreshWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: work)
+    }
 
     func refresh() {
         let arguments: [String]
@@ -255,7 +289,7 @@ private final class AndroidTransferBrowser: ObservableObject {
 
     private func run(_ arguments: [String], preserveMessage: Bool = false,
                      onFailure: ((BatchOutcome) -> Void)? = nil, completion: @escaping (Data) -> Void) {
-        guard !busy else { onFailure?(.failed); return }
+        guard !busy, let helper else { onFailure?(.failed); return }
         let process = Process()
         process.executableURL = helper
         process.arguments = arguments
@@ -383,7 +417,7 @@ private struct AndroidTransferView: View {
             }
         }
         .padding(16)
-        .frame(minWidth: 500, minHeight: 340)
+        .frame(minHeight: 280)
         .onAppear(perform: browser.refresh)
     }
 }

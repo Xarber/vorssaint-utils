@@ -17,6 +17,9 @@ struct NotchFilesView: View {
     @State private var supportedTools: [MediaTool] = []
     @State private var showingActions = false
     @State private var outputPanel: NSSavePanel?
+#if VORSSAINT_DEVELOPMENT
+    @ObservedObject private var nearby = LocalSendSession.shared
+#endif
     @Environment(\.notchSettingsPreview) private var preview
     private var text: NotchFilesStrings { FeatureStrings.notchFiles(l10n.language) }
 
@@ -25,12 +28,12 @@ struct NotchFilesView: View {
     }
 
     private var showsTiles: Bool {
-        !service.choosingFileDropDestination && presentedMediaSession == nil && !shelf.items.isEmpty
+        !service.choosingFileDropDestination && !showsNearby && presentedMediaSession == nil && !shelf.items.isEmpty
     }
 
     /// An archive's outcome, below whatever the shelf shows.
     private var showsArchiveStatus: Bool {
-        !service.choosingFileDropDestination && !archives.mediaPresented && AppFeature.mediaTools.isAvailable
+        !service.choosingFileDropDestination && !showsNearby && !archives.mediaPresented && AppFeature.mediaTools.isAvailable
     }
 
     var body: some View {
@@ -38,14 +41,19 @@ struct NotchFilesView: View {
             if service.choosingFileDropDestination {
                 GeometryReader { geometry in
                     let destinations = service.fileDropDestinations
-                    let width = NotchFileToolsSupport.dropWidth(contentWidth: geometry.size.width,
-                                                                  count: destinations.count)
-                    HStack(spacing: NotchFileToolsSupport.dropSpacing) {
-                        ForEach(destinations, id: \.self) { destination in
-                            dropDestination(destination).frame(width: width)
+                    let frames = NotchFileToolsSupport.dropFrames(
+                        destinations: destinations, in: CGRect(origin: .zero, size: geometry.size))
+                    ForEach(destinations, id: \.self) { destination in
+                        if let frame = frames[destination] {
+                            let compact = destinations.contains(.nearby) && (destination == .airDrop || destination == .nearby)
+                            dropDestination(destination, compact: compact)
+                                .frame(width: frame.width, height: frame.height)
+                                .position(x: frame.midX, y: frame.midY)
                         }
                     }
                 }
+            } else if showsNearby {
+                nearbyPanel
             } else if let session = presentedMediaSession {
                 MediaWorkspaceView(compact: true, onClose: archives.closeMedia,
                                    media: media, initialInputs: session.inputs,
@@ -120,7 +128,36 @@ struct NotchFilesView: View {
         if archives.mediaContentHeight != previous { service.refreshPresentation() }
     }
 
-    private func dropDestination(_ destination: NotchFileDropDestination) -> some View {
+    private var showsNearby: Bool {
+#if VORSSAINT_DEVELOPMENT
+        !preview && (nearby.offer != nil || !nearby.files.isEmpty)
+#else
+        false
+#endif
+    }
+
+    @ViewBuilder private var nearbyPanel: some View {
+#if VORSSAINT_DEVELOPMENT
+        ScrollView {
+            NearbyTransferControls(session: nearby, compact: true)
+            if NearbyFeatureLifecycle.hasQuickShare, !nearby.files.isEmpty, !nearby.sending {
+                Button {
+                    shareAnchor.present(nearby.files)
+                } label: {
+                    Label("Quick Share via NearDrop", systemImage: "arrow.left.arrow.right.circle")
+                }
+                .background(ShelfSharePickerAnchor(anchor: shareAnchor))
+                if !AppFeature.localSend.isAvailable || !LocalSendSession.available {
+                    Button("Clear", action: nearby.clearStagedFiles)
+                }
+            }
+        }
+        .onAppear { service.keepFileInteractionOpen(true) }
+        .onDisappear { service.keepFileInteractionOpen(false) }
+#endif
+    }
+
+    private func dropDestination(_ destination: NotchFileDropDestination, compact: Bool) -> some View {
         let title: String
         let symbol: String
         switch destination {
@@ -130,19 +167,23 @@ struct NotchFilesView: View {
         case .airDrop:
             title = "AirDrop"
             symbol = "dot.radiowaves.left.and.right"
+        case .nearby:
+            title = "Nearby Devices"
+            symbol = "point.3.connected.trianglepath.dotted"
         case .optimizeMedia:
             title = text.optimizeMedia
             symbol = "wand.and.stars"
         }
         let selected = service.targetedFileDrop == destination
         let available = destination != .optimizeMedia || archives.canAcceptMediaDrop
-        return VStack(spacing: 12) {
-            Image(systemName: symbol).font(.system(size: 28, weight: .light))
+        let layout = compact ? AnyLayout(HStackLayout(spacing: 6)) : AnyLayout(VStackLayout(spacing: 12))
+        return layout {
+            Image(systemName: symbol).font(.system(size: compact ? 14 : 28, weight: .light))
             Text(title).font(.callout.weight(.medium)).multilineTextAlignment(.center)
-                .lineLimit(2).minimumScaleFactor(0.8)
+                .lineLimit(compact ? 1 : 2).minimumScaleFactor(0.8)
             if !available { Text(l10n.s.mediaRunning).font(.caption).foregroundStyle(.secondary) }
         }
-        .padding(12)
+        .padding(compact ? 4 : 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.white.opacity(selected ? 0.14 : 0.04), in: RoundedRectangle(cornerRadius: 20))
         .overlay {

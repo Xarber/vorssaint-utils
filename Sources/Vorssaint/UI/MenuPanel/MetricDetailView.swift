@@ -170,27 +170,6 @@ struct MetricDetailView: View {
             if kind == .connectedDevices && !monitor.snapshot.thunderboltRouters.isEmpty {
                 thunderboltCard
             }
-            if kind == .connectedDevices,
-               let nearDrop = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "me.grishka.NearDrop") {
-                Button { NSWorkspace.shared.openApplication(at: nearDrop, configuration: .init()) } label: {
-                    Label("Open Quick Share Receiver", systemImage: "arrow.down.circle")
-                }
-                .panelCard()
-            }
-#if VORSSAINT_DEVELOPMENT
-            if kind == .connectedDevices && LocalSendWindow.available {
-                Button { LocalSendWindow.shared.show() } label: {
-                    Label("Receive with LocalSend", systemImage: "point.3.connected.trianglepath.dotted")
-                }
-                .panelCard()
-            }
-            if kind == .connectedDevices && AndroidTransferWindow.available {
-                Button { AndroidTransferWindow.shared.show() } label: {
-                    Label("Android File Transfer", systemImage: "cable.connector")
-                }
-                .panelCard()
-            }
-#endif
             if kind == .network {
                 speedTestCard
             }
@@ -408,7 +387,23 @@ struct MetricDetailView: View {
                             detailRow(row(strings.usbLink, rateLabel(rate)))
                         }
                         if let watts = port.selectedPowerWatts {
-                            detailRow(row(strings.selectedPower, MetricFormat.watts(watts)))
+                            let voltage = port.selectedMillivolts.map { (Double($0) / 1_000).formatted() + " V" }
+                            let current = port.selectedMilliamps.map { (Double($0) / 1_000).formatted() + " A" }
+                            detailRow(row(strings.selectedPower, [MetricFormat.watts(watts), voltage, current]
+                                .compactMap { $0 }.joined(separator: " · "), wrapsValue: true))
+                        }
+                        if let cable = port.cable {
+                            DisclosureGroup("USB Power Delivery") {
+                                if let vendor = cable.vendorID {
+                                    detailRow(row("VID", String(format: "%04X", vendor)))
+                                }
+                                if let product = cable.productID {
+                                    detailRow(row("PID", String(format: "%04X", product)))
+                                }
+                                if let certificate = cable.certificationID { detailRow(row("XID", String(certificate))) }
+                                Label(cable.activeCable ? "Active cable" : "Passive cable",
+                                      systemImage: "cable.connector").font(.caption)
+                            }
                         }
                         if port.thunderboltPresent {
                             Label("Thunderbolt / USB4", systemImage: "bolt")

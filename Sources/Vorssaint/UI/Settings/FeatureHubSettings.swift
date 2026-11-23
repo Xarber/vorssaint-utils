@@ -376,7 +376,7 @@ struct FeatureHubSettings: View {
     /// Groups start open and are measured before scrolling begins.
     /// Closing a group removes its feature rows until the user reopens it.
     private func groupCard(_ group: FeatureGroup) -> some View {
-        let members = AppFeature.features(in: group)
+        let members = AppFeature.features(in: group).filter(\.isSupportedInBuild)
         let installed = members.filter(\.isAvailable).count
         return SettingsCard {
             DisclosureGroup(isExpanded: Binding(
@@ -1166,6 +1166,9 @@ extension AppFeature {
         case .finderCutPaste: return s.cutPasteName
         case .finderRename: return FeatureStrings.finderRename(language).hubTitle
         case .shelf: return s.shelfName
+        case .localSend: return "LocalSend"
+        case .quickShare: return "Quick Share"
+        case .androidTransfer: return "Android USB Transfer"
         case .urlCleaner: return s.urlCleanerName
         case .diskImageInstaller:
             return FeatureStrings.diskImageInstaller(language).title
@@ -1253,6 +1256,9 @@ extension AppFeature {
         case .finderCutPaste: return hub.descFinderCutPaste
         case .finderRename: return FeatureStrings.finderRename(L10n.shared.language).hubDescription
         case .shelf: return hub.descShelf
+        case .localSend: return "Send and receive files on your local network."
+        case .quickShare: return "Use the installed NearDrop companion to exchange files with Android."
+        case .androidTransfer: return "Work with files on an Android device connected by USB."
         case .urlCleaner: return hub.descURLCleaner
         case .diskImageInstaller:
             return FeatureStrings.diskImageInstaller(L10n.shared.language).hubDescription

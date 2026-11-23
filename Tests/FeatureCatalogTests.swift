@@ -386,7 +386,7 @@ enum FeatureCatalogTests {
 
         // MARK: Features hub catalog
 
-        suite.expect(AppFeature.allCases.count == 80, "feature catalog has 80 features")
+        suite.expect(AppFeature.allCases.count == 83, "feature catalog has 83 features")
         suite.expect(Set(AppFeature.allCases.map(\.rawValue)).count == AppFeature.allCases.count,
                "feature ids are unique")
         suite.expect(AppFeature.allCases.map(\.rawValue) == [
@@ -394,7 +394,7 @@ enum FeatureCatalogTests {
             "scrollInverter", "scrollHorizontal", "scrollZoom", "focusFollowsMouse", "smoothScroll", "linearScroll", "scrollSpeed", "mouseAcceleration", "mouseNavigation", "mouseButtonShortcuts", "middleClick",
             "mouseClickDebounce", "keyboardDebounce", "textSnippets", "superKey", "quitWindowProtection",
             "clipboardHistory", "pastePlain", "finderCutPaste", "finderRename", "shelf", "urlCleaner",
-            "diskImageInstaller",
+            "diskImageInstaller", "localSend", "quickShare", "androidTransfer",
             "mixer", "soundOutputSwitcher", "audioPriority", "micMute", "musicBlock",
             "keepAwake", "brightness", "extraBrightness", "bluetoothSleep",
             "quickLauncher", "quickToggles", "quitApps", "colorPicker", "screenOCR", "cleaningMode", "mediaTools",
@@ -2274,7 +2274,7 @@ enum FeatureCatalogTests {
         suite.expect(pageVisible(.general, available: []) && pageVisible(.about, available: [])
                 && pageVisible(.shortcuts, available: []),
                "app pages never hide")
-        suite.expect(!pageVisible(.shelf, available: allFeatures.subtracting([.shelf])),
+        suite.expect(!pageVisible(.shelf, available: allFeatures.subtracting([.shelf, .localSend, .quickShare, .androidTransfer])),
                "single-feature pages follow their feature")
         suite.expect(pageVisible(.cutPaste, available: [.finderRename])
                 && pageVisible(.cutPaste, available: [.finderCutPaste])

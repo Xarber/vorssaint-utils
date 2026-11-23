@@ -6,7 +6,7 @@ import Foundation
 import UniformTypeIdentifiers
 
 enum NotchFileDropDestination: CaseIterable {
-    case shelf, airDrop, optimizeMedia
+    case shelf, airDrop, nearby, optimizeMedia
 }
 
 enum NotchFileToolsSupport {
@@ -22,6 +22,26 @@ enum NotchFileToolsSupport {
         let width = dropWidth(contentWidth: content.width, count: count)
         return CGRect(x: (size.width - content.width) / 2 + CGFloat(index) * (width + dropSpacing),
                       y: geometry.pageTopInset, width: width, height: content.height)
+    }
+
+    static func dropFrames(destinations: [NotchFileDropDestination], in content: CGRect)
+        -> [NotchFileDropDestination: CGRect] {
+        let split = destinations.contains(.airDrop) && destinations.contains(.nearby)
+        let columns = split ? destinations.filter { $0 != .nearby } : destinations
+        let width = dropWidth(contentWidth: content.width, count: columns.count)
+        var frames: [NotchFileDropDestination: CGRect] = [:]
+        for (index, destination) in columns.enumerated() {
+            let x = content.minX + CGFloat(index) * (width + dropSpacing)
+            if split && destination == .airDrop {
+                let gap = min(6, content.height)
+                let height = max(0, (content.height - gap) / 2)
+                frames[.airDrop] = CGRect(x: x, y: content.minY, width: width, height: height)
+                frames[.nearby] = CGRect(x: x, y: content.minY + height + gap, width: width, height: height)
+            } else {
+                frames[destination] = CGRect(x: x, y: content.minY, width: width, height: content.height)
+            }
+        }
+        return frames
     }
 
     static func mediaDropArea(in geometry: NotchGeometry, size: CGSize) -> CGRect {

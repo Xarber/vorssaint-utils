@@ -75,6 +75,15 @@ enum NotchFileToolsTests {
         archiveCancellationContracts(suite)
         durationLoadingContracts(suite)
         dropGeometryContracts(suite)
+        let area = CGRect(x: 10, y: 8, width: 336, height: 100)
+        let frames = NotchFileToolsSupport.dropFrames(
+            destinations: [.shelf, .airDrop, .nearby, .optimizeMedia], in: area)
+        if let airDrop = frames[.airDrop], let nearby = frames[.nearby], let shelf = frames[.shelf] {
+            suite.expect(airDrop.minX == nearby.minX && airDrop.width == nearby.width
+                         && airDrop.maxY < nearby.minY && shelf.height == area.height,
+                         "AirDrop and Nearby Devices get separate stacked hit areas beside the full-height Files tray")
+        } else { suite.expect(false, "all visible drop areas have frames") }
+
         MediaWorkspaceLayoutTests.run(suite)
     }
 

@@ -40,6 +40,9 @@ struct ShelfSettings: View {
                 }
             }
 
+#if VORSSAINT_DEVELOPMENT
+            TransferFeatureSettings()
+#endif
             Section(l10n.s.shelfHowTitle) {
                 bullet("1", l10n.s.shelfStep1)
                 bullet("2", l10n.s.shelfStep2)

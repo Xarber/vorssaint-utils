@@ -290,6 +290,9 @@ final class FeatureRuntime: ObservableObject {
             ShelfService.shared.syncWithPreferences()
             NotchFileToolsService.shared.syncWithPreferences()
         },
+        .localSend: { NearbyFeatureLifecycle.syncLocalSend() },
+        .quickShare: { NearbyFeatureLifecycle.syncQuickShare() },
+        .androidTransfer: { NearbyFeatureLifecycle.syncAndroidTransfer() },
         .urlCleaner: { URLCleanerService.shared.syncWithPreferences() },
         .diskImageInstaller: { DiskImageInstallerService.shared.syncWithPreferences() },
         .mixer: {

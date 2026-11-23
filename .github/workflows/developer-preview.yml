@@ -51,7 +51,7 @@ jobs:
           "$app/Contents/MacOS/VorssaintDeveloper" --selftest
           "$app/Contents/MacOS/vorssaint-mtp" devices
           test -x "$app/Contents/MacOS/vorssaint-localsend"
-          ./build.sh --test-suite=shelf --test-suite=metrics --test-suite=pointer-input --test-suite=linear-scroll
+          ./build.sh --test-suite=shelf --test-suite=metrics --test-suite=pointer-input --test-suite=linear-scroll --test-suite=notch --test-suite=features
 
       - name: Package verified Developer app
         run: |
