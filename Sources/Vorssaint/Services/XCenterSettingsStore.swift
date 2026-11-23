@@ -12,7 +12,7 @@ struct XCenterSettingsStore: Sendable {
     }
 
     enum Failure: Error {
-        case invalidClient, invalidResponse, notAuthorized, conflict, tooLarge
+        case invalidResponse, notAuthorized, conflict, tooLarge
     }
 
     private struct Payload: Codable {
@@ -20,14 +20,7 @@ struct XCenterSettingsStore: Sendable {
         let `public`: Bool
     }
 
-    private let recordURL: URL
-
-    init(clientID: String) throws {
-        guard !clientID.isEmpty, clientID.utf8.count <= 128,
-              clientID.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0)
-                  || (97...122).contains($0) || $0 == 45 || $0 == 95 }) else { throw Failure.invalidClient }
-        recordURL = URL(string: "https://id.xcenter.it/v1/apps/\(clientID)/data/preferences/mouse-profiles")!
-    }
+    private let recordURL = URL(string: "https://vorssaint.xcenter.it/auth/xcenter/mouse-profiles")!
 
     func fetch(accessToken: String) async throws -> Record? {
         try await exchange(method: "GET", accessToken: accessToken)
@@ -42,6 +35,10 @@ struct XCenterSettingsStore: Sendable {
             throw Failure.invalidResponse
         }
         return record
+    }
+
+    func delete(revision: String, accessToken: String) async throws {
+        _ = try await exchange(method: "DELETE", accessToken: accessToken, revision: revision)
     }
 
     private func exchange(method: String, accessToken: String, revision: String? = nil, body: Data? = nil) async throws -> Record? {
@@ -66,6 +63,7 @@ struct XCenterSettingsStore: Sendable {
         guard let response = response as? HTTPURLResponse else { throw Failure.invalidResponse }
         switch response.statusCode {
         case 401, 403: throw Failure.notAuthorized
+        case 204 where method == "DELETE": return nil
         case 404 where method == "GET": return nil
         case 409, 412: throw Failure.conflict
         case 200, 201: break
