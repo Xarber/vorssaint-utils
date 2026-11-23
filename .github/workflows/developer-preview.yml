@@ -27,6 +27,16 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+
+      - name: Run settings sync relay tests
+        working-directory: server
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm test
+
       - name: Install host libraries for the optional MTP helper
         run: brew install libmtp
 
