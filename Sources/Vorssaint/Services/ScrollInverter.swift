@@ -131,7 +131,8 @@ final class ScrollInverter: ObservableObject {
     /// linear scrolling are both off or uninstalled.
     private static var scrollSpeedWanted: Bool {
         AppFeature.scrollSpeed.isAvailable
-            && UserDefaults.standard.bool(forKey: DefaultsKey.scrollSpeedEnabled)
+            && (UserDefaults.standard.bool(forKey: DefaultsKey.scrollSpeedEnabled)
+                || MouseAppExceptions.shared.scrollProfilesNeedSpeedTap)
     }
 
     /// Each list's source apps are tracked only while its feature is one the
@@ -303,7 +304,7 @@ final class ScrollInverter: ObservableObject {
             if !ScrollWheelTarget.shared.contains(event.location) { return Unmanaged.passUnretained(event) }
         }
         let horizontalModifier = directionApplies ? direction.horizontalModifier : nil
-        let speed = ScrollSpeedPreferences(defaults: defaults)
+        let speed = ScrollSpeedPreferences(defaults: defaults, profile: profile)
         let speedKey = speed.matchingModifier(for: event, horizontalModifier: horizontalModifier,
             isExcepted: MouseAppExceptions.shared.excludesPointerTarget(
                 .scrollSpeed, at: event.location, sourceProcessID: sourceProcessID),

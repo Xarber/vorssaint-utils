@@ -535,23 +535,24 @@ struct ScrollSpeedPreferences {
     let multiplier: Int
 
     init(isAvailable: Bool, boolFor: (String) -> Bool, stringFor: (String) -> String?,
-         intFor: (String) -> Int) {
-        if isAvailable, boolFor(DefaultsKey.scrollSpeedEnabled) {
+         intFor: (String) -> Int, speedOverride: Int? = nil) {
+        if isAvailable, speedOverride.map({ $0 > 1 }) ?? boolFor(DefaultsKey.scrollSpeedEnabled) {
             modifier = stringFor(DefaultsKey.scrollSpeedModifier)
                 .flatMap(ScrollHorizontalModifier.init(rawValue:)) ?? .option
             multiplier = ScrollWheelSupport.sanitizedSpeedMultiplier(
-                intFor(DefaultsKey.scrollSpeedMultiplier))
+                speedOverride ?? intFor(DefaultsKey.scrollSpeedMultiplier))
         } else {
             modifier = nil
             multiplier = ScrollWheelSupport.defaultSpeedMultiplier
         }
     }
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, profile: MouseScrollDirectionProfile? = nil) {
         self.init(isAvailable: AppFeature.scrollSpeed.isAvailable(in: defaults),
                   boolFor: { defaults.bool(forKey: $0) },
                   stringFor: { defaults.string(forKey: $0) },
-                  intFor: { defaults.integer(forKey: $0) })
+                  intFor: { defaults.integer(forKey: $0) },
+                  speedOverride: profile?.speedMultiplier)
     }
 
     /// The horizontal modifier is the one active for this app. It takes priority

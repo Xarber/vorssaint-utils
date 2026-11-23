@@ -298,7 +298,7 @@ final class SmoothScrollService: ObservableObject {
         let wheelTapRunning = ScrollInverter.shared.isRunning
         let adjustDirectionHere = wheelTapRunning && !scrollTargetExcluded
         let horizontalModifier = adjustDirectionHere ? direction.horizontalModifier : nil
-        let speed = ScrollSpeedPreferences(defaults: defaults)
+        let speed = ScrollSpeedPreferences(defaults: defaults, profile: profile)
         let speedKey = wheelTapRunning ? speed.matchingModifier(for: event, horizontalModifier: horizontalModifier,
             isExcepted: exceptions.excludesPointerTarget(.scrollSpeed, at: event.location, sourceProcessID: sourceProcessID),
             targetsOwnWindow: ScrollWheelTarget.shared.contains(event.location)) : nil

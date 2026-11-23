@@ -28,7 +28,7 @@ final class MouseAccelerationService {
     }
 
     func syncWithPreferences() {
-        guard featureWanted else {
+        guard featureConfigured else {
             stop()
             return
         }
@@ -43,9 +43,19 @@ final class MouseAccelerationService {
         return pauseAndRestore()
     }
 
-    private var featureWanted: Bool {
+    private var featureConfigured: Bool {
         AppFeature.mouseAcceleration.isAvailable
-            && defaults.bool(forKey: DefaultsKey.mouseAccelerationDisabled)
+            && (defaults.bool(forKey: DefaultsKey.mouseAccelerationDisabled)
+                || MouseAppExceptions.shared.scrollProfiles.values.contains { $0.acceleration == .linear })
+    }
+
+    private var featureWanted: Bool {
+        guard AppFeature.mouseAcceleration.isAvailable else { return false }
+        let global = defaults.bool(forKey: DefaultsKey.mouseAccelerationDisabled)
+        guard let id = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
+              id != Bundle.main.bundleIdentifier,
+              let profile = MouseAppExceptions.shared.scrollProfiles[id] else { return global }
+        return profile.acceleration.disablesAcceleration(global: global)
     }
 
     private func startIfAllowed() {
@@ -219,6 +229,10 @@ final class MouseAccelerationService {
         guard lifecycleObservers.isEmpty else { return }
         let center = NSWorkspace.shared.notificationCenter
         lifecycleObservers = [
+            center.addObserver(forName: NSWorkspace.didActivateApplicationNotification,
+                               object: nil, queue: .main) { [weak self] _ in
+                self?.startIfAllowed()
+            },
             center.addObserver(forName: NSWorkspace.sessionDidResignActiveNotification,
                                object: nil, queue: .main) { [weak self] _ in
                 self?.sessionIsActive = false

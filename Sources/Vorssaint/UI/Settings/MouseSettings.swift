@@ -50,6 +50,8 @@ struct MouseSettings: View {
     @AppStorage(DefaultsKey.mouseClickDebounceEnabled) private var mouseClickDebounceEnabled = false
     @AppStorage(DefaultsKey.mouseClickDebounceWindowMs) private var mouseClickDebounceWindow =
         Defaults.defaultMouseClickDebounceWindowMs
+    @State private var selectedProfile: String?
+    @State private var choosingProfileApp = false
     @State private var smoothScrollMoreOptionsExpanded = false
 
     private var mouseClickDebounceText: MouseClickDebounceStrings {
@@ -68,51 +70,56 @@ struct MouseSettings: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if !legendFeatures.isEmpty {
-                    legendCard
-                }
-                if AppFeature.scrollInverter.isAvailable || AppFeature.scrollHorizontal.isAvailable {
-                    scrollCard
-                        .settingsSectionAnchor(.scrollDirection, cornerRadius: 16)
-                }
-                if AppFeature.scrollZoom.isAvailable {
-                    zoomCard
-                        .settingsSectionAnchor(.scrollZoom, cornerRadius: 16)
-                }
-                if AppFeature.focusFollowsMouse.isAvailable {
-                    focusFollowsMouseCard
-                        .settingsSectionAnchor(.focusFollowsMouse, cornerRadius: 16)
-                }
-                if AppFeature.smoothScroll.isAvailable {
-                    smoothScrollCard
-                        .settingsSectionAnchor(.smoothScroll, cornerRadius: 16)
-                }
-                if AppFeature.linearScroll.isAvailable {
-                    linearScrollCard
-                        .settingsSectionAnchor(.linearScroll, cornerRadius: 16)
-                }
-                if AppFeature.scrollSpeed.isAvailable {
-                    scrollSpeedCard
-                        .settingsSectionAnchor(.scrollSpeed, cornerRadius: 16)
-                }
-                if AppFeature.mouseAcceleration.isAvailable {
-                    accelerationCard
-                        .settingsSectionAnchor(.mouseAcceleration, cornerRadius: 16)
-                }
-                if AppFeature.mouseNavigation.isAvailable {
-                    navigationCard
-                        .settingsSectionAnchor(.mouseNavigation, cornerRadius: 16)
-                }
-                if AppFeature.mouseButtonShortcuts.isAvailable {
-                    MouseButtonShortcutsSection()
-                }
-                if AppFeature.mouseClickDebounce.isAvailable {
-                    clickDebounceCard
-                        .settingsSectionAnchor(.mouseClickDebounce, cornerRadius: 16)
-                }
-                if AppFeature.middleClick.isAvailable {
-                    middleClickCard
-                        .settingsSectionAnchor(.middleClick, cornerRadius: 16)
+                profilePicker
+                if let selectedProfile, appOverrides.scrollProfiles[selectedProfile] != nil {
+                    profileOverrides(selectedProfile)
+                } else {
+                    if !legendFeatures.isEmpty {
+                        legendCard
+                    }
+                    if AppFeature.scrollInverter.isAvailable || AppFeature.scrollHorizontal.isAvailable {
+                        scrollCard
+                            .settingsSectionAnchor(.scrollDirection, cornerRadius: 16)
+                    }
+                    if AppFeature.scrollZoom.isAvailable {
+                        zoomCard
+                            .settingsSectionAnchor(.scrollZoom, cornerRadius: 16)
+                    }
+                    if AppFeature.focusFollowsMouse.isAvailable {
+                        focusFollowsMouseCard
+                            .settingsSectionAnchor(.focusFollowsMouse, cornerRadius: 16)
+                    }
+                    if AppFeature.smoothScroll.isAvailable {
+                        smoothScrollCard
+                            .settingsSectionAnchor(.smoothScroll, cornerRadius: 16)
+                    }
+                    if AppFeature.linearScroll.isAvailable {
+                        linearScrollCard
+                            .settingsSectionAnchor(.linearScroll, cornerRadius: 16)
+                    }
+                    if AppFeature.scrollSpeed.isAvailable {
+                        scrollSpeedCard
+                            .settingsSectionAnchor(.scrollSpeed, cornerRadius: 16)
+                    }
+                    if AppFeature.mouseAcceleration.isAvailable {
+                        accelerationCard
+                            .settingsSectionAnchor(.mouseAcceleration, cornerRadius: 16)
+                    }
+                    if AppFeature.mouseNavigation.isAvailable {
+                        navigationCard
+                            .settingsSectionAnchor(.mouseNavigation, cornerRadius: 16)
+                    }
+                    if AppFeature.mouseButtonShortcuts.isAvailable {
+                        MouseButtonShortcutsSection()
+                    }
+                    if AppFeature.mouseClickDebounce.isAvailable {
+                        clickDebounceCard
+                            .settingsSectionAnchor(.mouseClickDebounce, cornerRadius: 16)
+                    }
+                    if AppFeature.middleClick.isAvailable {
+                        middleClickCard
+                            .settingsSectionAnchor(.middleClick, cornerRadius: 16)
+                    }
                 }
                 if accessibilityNoteVisible {
                     SettingsCard(title: l10n.s.permissionRequired) {
@@ -230,9 +237,6 @@ struct MouseSettings: View {
                         .padding(.leading, settingsRowTextInset)
                 }
             }
-            if AppFeature.scrollInverter.isAvailable {
-                scrollProfiles
-            }
             if scrollInversionEnabled, inverter.isRunning {
                 activeBadge(l10n.s.scrollActiveNow)
             }
@@ -246,37 +250,100 @@ struct MouseSettings: View {
         }
     }
 
-    private var scrollProfiles: some View {
-        let text = FeatureStrings.mouseScrollProfiles(l10n.language)
+    private var profilePicker: some View {
         let appList = FeatureStrings.mouseExceptions(l10n.language)
-        return AppBundleList(title: text.title, caption: text.description,
-                             addTitle: appList.addButton, removeLabel: appList.removeButton,
-                             bundleIDs: Array(appOverrides.scrollProfiles.keys), reachesEveryApp: true,
-                             onAdd: { updateScrollProfile(MouseScrollDirectionProfile(), for: $0) },
-                             onRemove: { updateScrollProfile(nil, for: $0) }) { id in
-            Menu {
-                Picker(l10n.s.invertVerticalScroll, selection: scrollProfileDirection(id, axis: \.vertical)) {
-                    ForEach(MouseScrollDirectionProfile.Direction.allCases, id: \.self) { value in
-                        Text(text.label(value)).tag(value)
+        return HStack {
+            Picker("Profile", selection: $selectedProfile) {
+                Text("Global").tag(String?.none)
+                ForEach(appOverrides.scrollProfiles.keys.sorted {
+                    InstalledApps.name(for: $0).localizedStandardCompare(InstalledApps.name(for: $1)) == .orderedAscending
+                }, id: \.self) { id in
+                    Text(InstalledApps.name(for: id)).tag(String?.some(id))
+                }
+            }
+            Button { choosingProfileApp = true } label: {
+                Label(appList.addButton, systemImage: "plus")
+            }
+            if let selectedProfile {
+                Button {
+                    updateScrollProfile(nil, for: selectedProfile)
+                    self.selectedProfile = nil
+                } label: { Image(systemName: "minus.circle") }
+                .accessibilityLabel(appList.removeButton)
+            }
+        }
+        .sheet(isPresented: $choosingProfileApp) {
+            AppPickerView(canBrowseApplications: true, acceptsExecutables: false,
+                          onCancel: { choosingProfileApp = false },
+                          onSelect: { selectProfileApp(Bundle(url: $0)?.bundleIdentifier) },
+                          onSelectApp: { selectProfileApp(Bundle(url: $0.url)?.bundleIdentifier) })
+        }
+    }
+
+    private func selectProfileApp(_ id: String?) {
+        choosingProfileApp = false
+        guard let id else { return }
+        if appOverrides.scrollProfiles[id] == nil { updateScrollProfile(MouseScrollDirectionProfile(), for: id) }
+        selectedProfile = id
+    }
+
+    private func profileOverrides(_ id: String) -> some View {
+        let text = FeatureStrings.mouseScrollProfiles(l10n.language)
+        return VStack(alignment: .leading, spacing: 12) {
+            if AppFeature.scrollInverter.isAvailable {
+                SettingsCard(title: l10n.s.scrollSection) {
+                    Picker(l10n.s.invertVerticalScroll, selection: scrollProfileDirection(id, axis: \.vertical)) {
+                        ForEach(MouseScrollDirectionProfile.Direction.allCases, id: \.self) { value in
+                            Text(text.label(value)).tag(value)
+                        }
+                    }
+                    Picker(l10n.s.invertHorizontalScroll, selection: scrollProfileDirection(id, axis: \.horizontal)) {
+                        ForEach(MouseScrollDirectionProfile.Direction.allCases, id: \.self) { value in
+                            Text(text.label(value)).tag(value)
+                        }
                     }
                 }
-                Picker(l10n.s.invertHorizontalScroll, selection: scrollProfileDirection(id, axis: \.horizontal)) {
-                    ForEach(MouseScrollDirectionProfile.Direction.allCases, id: \.self) { value in
-                        Text(text.label(value)).tag(value)
-                    }
-                }
-                if AppFeature.linearScroll.isAvailable {
-                    Picker(l10n.s.linearScrollLinesLabel, selection: scrollProfileDistance(id)) {
+            }
+            if AppFeature.linearScroll.isAvailable {
+                SettingsCard(title: l10n.s.linearScrollName) {
+                    Picker(l10n.s.linearScrollLinesLabel, selection: profileNumber(id, keyPath: \.linesPerNotch)) {
                         Text(text.inherited).tag(Int?.none)
                         ForEach(ScrollWheelSupport.linesPerNotchRange, id: \.self) { distance in
                             Text(distance.formatted()).tag(Int?.some(distance))
                         }
                     }
                 }
-            } label: {
-                Label(text.edit, systemImage: "slider.horizontal.3")
             }
-            .controlSize(.small)
+            if AppFeature.scrollSpeed.isAvailable {
+                SettingsCard(title: l10n.s.scrollSpeedName) {
+                    Picker(l10n.s.scrollSpeedMultiplierLabel, selection: profileNumber(id, keyPath: \.speedMultiplier)) {
+                        Text(text.inherited).tag(Int?.none)
+                        Text("Off").tag(Int?.some(1))
+                        ForEach(ScrollWheelSupport.speedMultiplierRange, id: \.self) { multiplier in
+                            Text("\(multiplier)×").tag(Int?.some(multiplier))
+                        }
+                    }
+                }
+            }
+            if AppFeature.mouseAcceleration.isAvailable {
+                SettingsCard(title: l10n.s.mouseAccelerationName) {
+                    Picker(l10n.s.mouseAccelerationName, selection: accelerationProfile(id)) {
+                        Text(text.inherited).tag(MouseScrollDirectionProfile.Acceleration.inherited)
+                        Text(text.system).tag(MouseScrollDirectionProfile.Acceleration.system)
+                        Text("Linear").tag(MouseScrollDirectionProfile.Acceleration.linear)
+                    }
+                }
+            }
+        }
+    }
+
+    private func accelerationProfile(_ id: String) -> Binding<MouseScrollDirectionProfile.Acceleration> {
+        Binding {
+            appOverrides.scrollProfiles[id]?.acceleration ?? .inherited
+        } set: { value in
+            guard var profile = appOverrides.scrollProfiles[id] else { return }
+            profile.acceleration = value
+            updateScrollProfile(profile, for: id)
         }
     }
 
@@ -292,12 +359,12 @@ struct MouseSettings: View {
         }
     }
 
-    private func scrollProfileDistance(_ bundleID: String) -> Binding<Int?> {
+    private func profileNumber(_ bundleID: String, keyPath: WritableKeyPath<MouseScrollDirectionProfile, Int?>) -> Binding<Int?> {
         Binding {
-            appOverrides.scrollProfiles[bundleID]?.linesPerNotch
+            appOverrides.scrollProfiles[bundleID]?[keyPath: keyPath]
         } set: { distance in
             guard var profile = appOverrides.scrollProfiles[bundleID] else { return }
-            profile.linesPerNotch = distance
+            profile[keyPath: keyPath] = distance
             updateScrollProfile(profile, for: bundleID)
         }
     }
@@ -305,7 +372,10 @@ struct MouseSettings: View {
     private func updateScrollProfile(_ profile: MouseScrollDirectionProfile?, for bundleID: String) {
         appOverrides.setScrollProfile(profile, for: bundleID)
         ScrollInverter.shared.syncWithPreferences()
-        if profile?.needsActiveTap == true || profile?.linesPerNotch != nil { permissions.requestAccessibility() }
+        MouseAccelerationService.shared.syncWithPreferences()
+        if profile?.needsActiveTap == true || profile?.linesPerNotch != nil || (profile?.speedMultiplier ?? 1) > 1 {
+            permissions.requestAccessibility()
+        }
     }
 
     private var zoomCard: some View {

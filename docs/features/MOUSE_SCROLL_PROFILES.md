@@ -1,7 +1,12 @@
-# Per-app scroll direction
+# Mouse and trackpad profiles
 
-On **Mouse & Trackpad → Scrolling**, expand **Per-app scroll direction**, add an application, and edit either axis. Each axis can inherit Vorssaint’s global direction, use the direction macOS delivers, or reverse it. Use **Lines per notch** to set the wheel distance for that app. A distance override can activate linear scrolling for that app while the global switch is off. The profile takes effect for mouse-wheel events routed to that app. Existing exclusion lists still take precedence, and gesture-based trackpad scrolling follows the existing handling.
+Open **Mouse & Trackpad** and select **Global** to edit the existing defaults. Add an app to the profile picker and select it to show its overrides. Each override can inherit independently. Removing a profile restores the global behavior in that app.
 
-The existing pointer-target cache resolves bundle identifiers off the event callback. With no matching profile, the existing global settings apply. With a match, both the raw wheel tap and the smoothing path resolve the same two axes and wheel distance. A reversed profile can keep the direction tap active when the global switches are off. Disabling the Scroll Direction feature suspends its overrides.
+- **Wheel direction** uses the global direction, the direction macOS delivers, or the reverse direction, independently on each axis.
+- **Lines per notch** changes wheel distance and can activate linear scrolling for the app while the global switch is off.
+- **Scroll speed** overrides the modifier-held multiplier, using the modifier selected in Global. Choose **Off** to suppress the shortcut in that app.
+- **Mouse acceleration** uses the global choice, the macOS device setting, or linear pointer movement for the foreground app.
 
-Profiles are portable settings. No new permission is requested beyond the existing Accessibility permission for mouse-wheel customization. Physical app switching and wheel versus trackpad behavior still need GUI verification.
+Wheel overrides follow the destination under the pointer, and existing per-feature mouse exceptions take precedence. Both the raw wheel tap and the smooth-scroll path use the profile. Acceleration follows the foreground application and uses the existing per-device mouse recovery journal to restore system values when leaving an app with a linear profile. These controls apply to mice handled by the existing services. Trackpad gestures retain their current behavior.
+
+Feature switches in the feature menu still govern availability. These profiles use Vorssaint's existing settings key and preserve older direction and distance entries. App-specific trackpad controls, smoothing parameters, gesture actions, and button mapping are still pending. The profile architecture does not require additional permissions beyond those already used by the underlying features.

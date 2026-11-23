@@ -63,31 +63,61 @@ struct MouseScrollDirectionProfile: Equatable {
         }
     }
 
+    enum Acceleration: String, CaseIterable {
+        case inherited, system, linear
+
+        func disablesAcceleration(global: Bool) -> Bool {
+            switch self {
+            case .inherited: return global
+            case .system: return false
+            case .linear: return true
+            }
+        }
+    }
+
     var vertical: Direction = .inherited
     var horizontal: Direction = .inherited
     var linesPerNotch: Int?
+    var acceleration: Acceleration = .inherited
+    var speedMultiplier: Int?
 
     init() {}
 
     init?(storage: String) {
-        let fields = storage.split(separator: ",")
-        guard (2...3).contains(fields.count),
+        let fields = storage.split(separator: ",", omittingEmptySubsequences: false)
+        guard (2...5).contains(fields.count),
               let vertical = Direction(rawValue: String(fields[0])),
               let horizontal = Direction(rawValue: String(fields[1])) else { return nil }
         self.vertical = vertical
         self.horizontal = horizontal
-        if fields.count == 3 {
+        if fields.count >= 3, !fields[2].isEmpty {
             guard let distance = Int(fields[2]), (1...10).contains(distance) else { return nil }
             linesPerNotch = distance
+        }
+        if fields.count >= 4 {
+            guard let acceleration = Acceleration(rawValue: String(fields[3])) else { return nil }
+            self.acceleration = acceleration
+        }
+        if fields.count == 5 {
+            guard let speed = Int(fields[4]), (1...15).contains(speed) else { return nil }
+            speedMultiplier = speed
         }
     }
 
     var storage: String {
         let direction = "\(vertical.rawValue),\(horizontal.rawValue)"
+        if let speedMultiplier {
+            return direction + "," + (linesPerNotch.map(String.init) ?? "") + "," + acceleration.rawValue + ",\(speedMultiplier)"
+        }
+        if acceleration != .inherited {
+            return direction + "," + (linesPerNotch.map(String.init) ?? "") + "," + acceleration.rawValue
+        }
         return linesPerNotch.map { direction + ",\($0)" } ?? direction
     }
     var needsActiveTap: Bool { vertical == .reversed || horizontal == .reversed }
-    var hasOverrides: Bool { vertical != .inherited || horizontal != .inherited || linesPerNotch != nil }
+    var hasOverrides: Bool {
+        vertical != .inherited || horizontal != .inherited || linesPerNotch != nil || speedMultiplier != nil
+    }
 }
 
 /// The pure half of the mouse exceptions: which window answers for the app
