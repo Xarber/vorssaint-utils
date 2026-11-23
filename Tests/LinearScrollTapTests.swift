@@ -13,6 +13,7 @@ enum LinearScrollTapTests {
         static let shared = Exceptions()
         var directionProfile: MouseScrollDirectionProfile?
         var scrollProfilesNeedLinearTap: Bool { directionProfile?.linesPerNotch != nil }
+        var scrollProfilesNeedSpeedTap: Bool { (directionProfile?.speedMultiplier ?? 1) > 1 }
         var scrollProfilesNeedTap: Bool { directionProfile?.needsActiveTap == true }
         func scrollProfile(at point: CGPoint) -> MouseScrollDirectionProfile? { directionProfile }
         func reload() {}
@@ -87,6 +88,19 @@ enum LinearScrollTapTests {
     }
 
     static func run(_ suite: TestSuite) {
+        let profile = MouseScrollDirectionProfile(storage: "inherited,inherited,,linear,4")
+        suite.expect(profile?.storage == "inherited,inherited,,linear,4" && profile?.speedMultiplier == 4,
+                     "app-specific speed and acceleration round-trip together")
+        suite.expect(MouseScrollDirectionProfile(storage: "inherited,inherited,,system,16") == nil,
+                     "out-of-range app-specific speeds are rejected")
+        let override = ScrollSpeedPreferences(isAvailable: true, boolFor: { _ in false }, stringFor: { _ in "shift" },
+                                              intFor: { _ in 2 }, speedOverride: profile?.speedMultiplier)
+        suite.expect(override.modifier == .shift && override.multiplier == 4,
+                     "an app override enables the inherited modifier at its own speed")
+        let disabledOverride = ScrollSpeedPreferences(isAvailable: true, boolFor: { _ in true },
+                                                      stringFor: { _ in "shift" }, intFor: { _ in 2 }, speedOverride: 1)
+        suite.expect(disabledOverride.modifier == nil, "app profile can disable the global speed modifier")
+
         let name = "com.vorssaint.tests.linear-scroll-tap.\(UUID().uuidString)"
         let defaults = Foundation.UserDefaults(suiteName: name)!
         let previousDefaults = StandardDefaults.standard
@@ -151,6 +165,17 @@ enum LinearScrollTapTests {
         suite.expect(deliver(wheel(line: 1, fixed: 1, point: 10)).map(verticalLine) == 1,
                      "per-app wheel distance honors the linear scrolling exception")
         Exceptions.shared.directionProfile = nil
+        let profileWithAcceleration = MouseScrollDirectionProfile(storage: "system,reversed,,linear")
+        suite.expect(profileWithAcceleration?.storage == "system,reversed,,linear"
+                     && profileWithAcceleration?.acceleration.disablesAcceleration(global: false) == true,
+                     "pointer acceleration round-trips without a wheel distance and can override Global")
+        suite.expect(!MouseScrollDirectionProfile.Acceleration.system.disablesAcceleration(global: true),
+                     "the macOS acceleration override restores the system setting even when Global is linear")
+        let snapshot = XCenterSettingsSnapshot.Snapshot(version: 1, mouseProfiles: ["com.example.editor": "system,reversed,,linear"])
+        suite.expect(XCenterSettingsSnapshot.validated(snapshot) == snapshot,
+                     "settings sync accepts a portable bundled-app profile")
+        suite.expect(XCenterSettingsSnapshot.validated(.init(version: 1, mouseProfiles: ["/private/device/path": "inherited,inherited"])) == nil,
+                     "settings sync rejects machine paths even when the profile itself is valid")
 
         // Notches as a plain Bluetooth wheel sends them with macOS acceleration
         // on: slow, medium and fast turns of the same single notch.
