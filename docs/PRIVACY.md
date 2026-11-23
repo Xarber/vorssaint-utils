@@ -47,7 +47,7 @@ Covers for Firefox-based browsers are off until you turn on Find covers for Fire
 
 ## Network connections
 
-The optional LocalSend Developer helper announces a temporary device identity and exchanges discovery messages on the local network while the LocalSend feature is enabled. Outgoing files are sent to the selected TLS peer. Incoming transfers require approval and are staged in a private subdirectory of the chosen folder. Quick Share uses the installed NearDrop app and its permissions. When X-Center settings sync is configured and you choose Save Current Profiles, Vorssaint stores your application bundle identifiers and per-app mouse preferences in a private X-Center ID record. Imports and removal of the saved record are explicit actions.
+The optional LocalSend Developer helper announces a temporary device identity and exchanges discovery messages on the local network while the LocalSend feature is enabled. Outgoing files are sent to the selected TLS peer. Incoming transfers require approval and are staged in a private subdirectory of the chosen folder. Quick Share uses the installed NearDrop app and its permissions. When you choose Back Up Now in Advanced, Vorssaint stores the portable data included by Export All Data in private, account-scoped X-Center ID records. Cloud restores and removal of the saved backup are explicit actions.
 
 Vorssaint opens only a few kinds of connection, and each one belongs to a visible feature.
 
