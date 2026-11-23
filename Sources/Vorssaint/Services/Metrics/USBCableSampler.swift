@@ -9,6 +9,10 @@ struct USBCableReading: Equatable, Sendable {
     let advertisedRate: ClosedRange<Int>?
     let advertisedAmps: Int?
     let advertisedWatts: Int?
+    let activeCable: Bool
+    let vendorID: UInt16?
+    let productID: UInt16?
+    let certificationID: UInt32?
 
     static func decode(_ objects: [Data]) -> Self? {
         guard objects.count >= 4, objects[0].count == 4, objects[3].count == 4 else { return nil }
@@ -38,7 +42,13 @@ struct USBCableReading: Equatable, Sendable {
         // A 50 V insulation rating is not a 50 V power contract. Only
         // explicitly compatible 5 A EPR cables qualify for the 48 V ceiling.
         let watts = carriesPower ? amps.map { $0 * (epr && voltageRating == 3 && $0 == 5 ? 48 : 20) } : nil
-        return Self(advertisedRate: rate, advertisedAmps: carriesPower ? amps : nil, advertisedWatts: watts)
+        let vendor = UInt16(truncatingIfNeeded: header)
+        let product = objects[2].count == 4 ? UInt16(truncatingIfNeeded: word(objects[2]) >> 16) : 0
+        let certificate = objects[1].count == 4 ? word(objects[1]) : 0
+        return Self(advertisedRate: rate, advertisedAmps: carriesPower ? amps : nil, advertisedWatts: watts,
+                    activeCable: productType == 4, vendorID: vendor == 0 ? nil : vendor,
+                    productID: product == 0 ? nil : product,
+                    certificationID: certificate == 0 ? nil : certificate)
     }
 
     private static func word(_ data: Data) -> UInt32 {
@@ -51,6 +61,8 @@ struct USBPortReading: Identifiable, Equatable, Sendable {
     var cable: USBCableReading?
     var negotiatedUSBRate: Int?
     var selectedPowerWatts: Double?
+    var selectedMillivolts: Int?
+    var selectedMilliamps: Int?
     var thunderboltPresent = false
     var id: Int { portNumber }
 }
@@ -110,6 +122,8 @@ enum USBCableSampler {
                   option["Class"] as? String == "IOPortFeaturePowerSourceOptionFixed",
                   let millivolts = option["Voltage (mV)"] as? Int, (1...48_000).contains(millivolts),
                   let milliamps = option["Max Current (mA)"] as? Int, (1...5_000).contains(milliamps) else { return }
+            port.selectedMillivolts = millivolts
+            port.selectedMilliamps = milliamps
             port.selectedPowerWatts = Double(millivolts) * Double(milliamps) / 1_000_000
         }
         return ports.values.sorted { $0.portNumber < $1.portNumber }

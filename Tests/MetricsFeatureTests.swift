@@ -1299,6 +1299,15 @@ enum MetricsFeatureTests {
         suite.expect(dataOnly?.advertisedRate == 5_000...5_000 && dataOnly?.advertisedAmps == nil
                      && dataOnly?.advertisedWatts == nil,
                      "an active cable without VBUS passthrough cannot report a power rating")
+        let identity = USBCableReading.decode([
+            encode((4 << 27) | 0x1234), encode(2026), encode(0xABCD_0100), encode(1),
+        ])
+        suite.expect(identity?.activeCable == true && identity?.vendorID == 0x1234
+                     && identity?.productID == 0xABCD && identity?.certificationID == 2026,
+                     "active cable identity exposes the reported VID, PID, and XID")
+        suite.expect(epr?.activeCable == false && epr?.vendorID == nil
+                     && epr?.productID == nil && epr?.certificationID == nil,
+                     "the passive cable reports absent identifiers as unknown")
         let reserved = USBCableReading.decode(cable(3, 7 | (3 << 5)))
         suite.expect(reserved?.advertisedRate == nil && reserved?.advertisedWatts == nil,
                      "reserved values remain unknown")
