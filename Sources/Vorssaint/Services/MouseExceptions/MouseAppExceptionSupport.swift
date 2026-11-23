@@ -80,12 +80,16 @@ struct MouseScrollDirectionProfile: Equatable {
     var linesPerNotch: Int?
     var acceleration: Acceleration = .inherited
     var speedMultiplier: Int?
+    var smoothScroll: Bool?
+    var smoothStep: Int?
+    var smoothResponse: Int?
+    var smoothCoast: Int?
 
     init() {}
 
     init?(storage: String) {
         let fields = storage.split(separator: ",", omittingEmptySubsequences: false)
-        guard (2...5).contains(fields.count),
+        guard (2...9).contains(fields.count),
               let vertical = Direction(rawValue: String(fields[0])),
               let horizontal = Direction(rawValue: String(fields[1])) else { return nil }
         self.vertical = vertical
@@ -98,14 +102,42 @@ struct MouseScrollDirectionProfile: Equatable {
             guard let acceleration = Acceleration(rawValue: String(fields[3])) else { return nil }
             self.acceleration = acceleration
         }
-        if fields.count == 5 {
+        if fields.count >= 5, !fields[4].isEmpty {
             guard let speed = Int(fields[4]), (1...15).contains(speed) else { return nil }
             speedMultiplier = speed
+        }
+        if fields.count >= 6, !fields[5].isEmpty {
+            switch fields[5] {
+            case "on": smoothScroll = true
+            case "off": smoothScroll = false
+            default: return nil
+            }
+        }
+        if fields.count >= 7, !fields[6].isEmpty {
+            guard let step = Int(fields[6]), SmoothScrollSupport.stepRange.contains(step) else { return nil }
+            smoothStep = step
+        }
+        if fields.count >= 8, !fields[7].isEmpty {
+            guard let response = Int(fields[7]), SmoothScrollSupport.responseRange.contains(response) else { return nil }
+            smoothResponse = response
+        }
+        if fields.count == 9, !fields[8].isEmpty {
+            guard let coast = Int(fields[8]), SmoothScrollSupport.coastRange.contains(coast) else { return nil }
+            smoothCoast = coast
         }
     }
 
     var storage: String {
         let direction = "\(vertical.rawValue),\(horizontal.rawValue)"
+        if hasSmoothOverrides {
+            let smoothValue = smoothScroll.map { $0 ? "on" : "off" } ?? ""
+            let values = [smoothStep, smoothResponse, smoothCoast].map { value in
+                value.map(String.init) ?? ""
+            }
+            let fields = [direction, linesPerNotch.map(String.init) ?? "", acceleration.rawValue,
+                          speedMultiplier.map(String.init) ?? "", smoothValue] + values
+            return fields.joined(separator: ",")
+        }
         if let speedMultiplier {
             return direction + "," + (linesPerNotch.map(String.init) ?? "") + "," + acceleration.rawValue + ",\(speedMultiplier)"
         }
@@ -115,8 +147,13 @@ struct MouseScrollDirectionProfile: Equatable {
         return linesPerNotch.map { direction + ",\($0)" } ?? direction
     }
     var needsActiveTap: Bool { vertical == .reversed || horizontal == .reversed }
+    private var hasSmoothOverrides: Bool {
+        smoothScroll != nil || smoothStep != nil || smoothResponse != nil || smoothCoast != nil
+    }
+
     var hasOverrides: Bool {
-        vertical != .inherited || horizontal != .inherited || linesPerNotch != nil || speedMultiplier != nil
+        vertical != .inherited || horizontal != .inherited || linesPerNotch != nil
+            || speedMultiplier != nil || hasSmoothOverrides
     }
 }
 

@@ -13,6 +13,7 @@ enum SmoothScrollRoutingTests {
     final class Exceptions {
         static let shared = Exceptions()
         var directionProfile: MouseScrollDirectionProfile?
+        var scrollProfilesNeedSmoothTap: Bool { directionProfile?.smoothScroll == true }
         var scrollProfilesNeedTap: Bool { directionProfile?.needsActiveTap == true }
         func scrollProfile(at point: CGPoint) -> MouseScrollDirectionProfile? { directionProfile }
         func reload() {}
@@ -95,6 +96,7 @@ enum SmoothScrollRoutingTests {
         let previousRawDefaults = LinearScrollTapTests.StandardDefaults.standard
         DefaultsStore.standard = defaults
         LinearScrollTapTests.StandardDefaults.standard = defaults
+        defaults.set(true, forKey: DefaultsKey.smoothScrollEnabled)
         defaults.set(40, forKey: DefaultsKey.smoothScrollStep)
         defaults.set(SmoothScrollSupport.defaultResponse, forKey: DefaultsKey.smoothScrollResponse)
         defaults.set(0, forKey: DefaultsKey.smoothScrollCoast)
@@ -136,6 +138,20 @@ enum SmoothScrollRoutingTests {
         func frame(_ service: Service, at time: TimeInterval = 1) {
             service.emitFrame(at: time, firstElapsed: SmoothScrollSupport.frameInterval)
         }
+        let profiledService = Service()
+        let smoothOff = "inherited,inherited,,inherited,,off,40,20,0"
+        Exceptions.shared.directionProfile = MouseScrollDirectionProfile(storage: smoothOff)
+        suite.expect(Exceptions.shared.directionProfile?.storage == smoothOff
+                     && tick(profiledService, wheel()) != nil && !profiledService.scheduled,
+                     "an app can disable smoothing and its profile round-trips")
+        defaults.set(false, forKey: DefaultsKey.smoothScrollEnabled)
+        Exceptions.shared.directionProfile = MouseScrollDirectionProfile(
+            storage: "inherited,inherited,,inherited,,on,65,35,10")
+        suite.expect(tick(profiledService, wheel()) == nil && profiledService.engine.remainingVertical == 65
+                     && profiledService.currentResponse == 35 && profiledService.currentCoast == 10,
+                     "an app can enable smoothing at its own step, response, and coast")
+        Exceptions.shared.directionProfile = nil
+        defaults.set(true, forKey: DefaultsKey.smoothScrollEnabled)
         let original = wheel()
         suite.expect(NSEvent(cgEvent: original)?.windowNumber == 101,
                      "the routing fixture carries an AppKit window annotation")

@@ -306,7 +306,7 @@ struct MouseSettings: View {
             }
             if AppFeature.linearScroll.isAvailable {
                 SettingsCard(title: l10n.s.linearScrollName) {
-                    Picker(l10n.s.linearScrollLinesLabel, selection: profileNumber(id, keyPath: \.linesPerNotch)) {
+                    Picker(l10n.s.linearScrollLinesLabel, selection: profileValue(id, keyPath: \.linesPerNotch)) {
                         Text(text.inherited).tag(Int?.none)
                         ForEach(ScrollWheelSupport.linesPerNotchRange, id: \.self) { distance in
                             Text(distance.formatted()).tag(Int?.some(distance))
@@ -314,9 +314,24 @@ struct MouseSettings: View {
                     }
                 }
             }
+            if AppFeature.smoothScroll.isAvailable {
+                SettingsCard(title: l10n.s.smoothScrollName) {
+                    Picker(l10n.s.smoothScrollName, selection: profileValue(id, keyPath: \.smoothScroll)) {
+                        Text(text.inherited).tag(Bool?.none)
+                        Text("Off").tag(Bool?.some(false))
+                        Text("On").tag(Bool?.some(true))
+                    }
+                    smoothProfileNumber(l10n.s.smoothScrollStepLabel, id: id, keyPath: \.smoothStep,
+                                        values: SmoothScrollSupport.stepRange)
+                    smoothProfileNumber(l10n.s.smoothScrollResponseLabel, id: id, keyPath: \.smoothResponse,
+                                        values: SmoothScrollSupport.responseRange, suffix: "%")
+                    smoothProfileNumber(l10n.s.smoothScrollCoastLabel, id: id, keyPath: \.smoothCoast,
+                                        values: SmoothScrollSupport.coastRange, suffix: "%")
+                }
+            }
             if AppFeature.scrollSpeed.isAvailable {
                 SettingsCard(title: l10n.s.scrollSpeedName) {
-                    Picker(l10n.s.scrollSpeedMultiplierLabel, selection: profileNumber(id, keyPath: \.speedMultiplier)) {
+                    Picker(l10n.s.scrollSpeedMultiplierLabel, selection: profileValue(id, keyPath: \.speedMultiplier)) {
                         Text(text.inherited).tag(Int?.none)
                         Text("Off").tag(Int?.some(1))
                         ForEach(ScrollWheelSupport.speedMultiplierRange, id: \.self) { multiplier in
@@ -359,12 +374,26 @@ struct MouseSettings: View {
         }
     }
 
-    private func profileNumber(_ bundleID: String, keyPath: WritableKeyPath<MouseScrollDirectionProfile, Int?>) -> Binding<Int?> {
+    private func smoothProfileNumber(_ title: String, id: String, keyPath: WritableKeyPath<MouseScrollDirectionProfile, Int?>,
+                                     values: ClosedRange<Int>, suffix: String = "") -> some View {
+        let inherited = FeatureStrings.mouseScrollProfiles(l10n.language).inherited
+        let current = appOverrides.scrollProfiles[id]?[keyPath: keyPath]
+        let steps = values.filter { $0.isMultiple(of: 5) || $0 == current }
+        return Picker(title, selection: profileValue(id, keyPath: keyPath)) {
+            Text(inherited).tag(Int?.none)
+            ForEach(steps, id: \.self) { number in
+                Text(number.formatted() + suffix).tag(Int?.some(number))
+            }
+        }
+    }
+
+    private func profileValue<Value>(_ bundleID: String,
+                                     keyPath: WritableKeyPath<MouseScrollDirectionProfile, Value?>) -> Binding<Value?> {
         Binding {
             appOverrides.scrollProfiles[bundleID]?[keyPath: keyPath]
-        } set: { distance in
+        } set: { value in
             guard var profile = appOverrides.scrollProfiles[bundleID] else { return }
-            profile[keyPath: keyPath] = distance
+            profile[keyPath: keyPath] = value
             updateScrollProfile(profile, for: bundleID)
         }
     }
@@ -373,7 +402,9 @@ struct MouseSettings: View {
         appOverrides.setScrollProfile(profile, for: bundleID)
         ScrollInverter.shared.syncWithPreferences()
         MouseAccelerationService.shared.syncWithPreferences()
-        if profile?.needsActiveTap == true || profile?.linesPerNotch != nil || (profile?.speedMultiplier ?? 1) > 1 {
+        SmoothScrollService.shared.syncWithPreferences()
+        if profile?.needsActiveTap == true || profile?.linesPerNotch != nil
+            || (profile?.speedMultiplier ?? 1) > 1 || profile?.smoothScroll == true {
             permissions.requestAccessibility()
         }
     }

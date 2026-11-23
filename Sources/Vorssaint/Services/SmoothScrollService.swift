@@ -79,7 +79,8 @@ final class SmoothScrollService: ObservableObject {
     /// Applies the persisted preference; safe to call repeatedly.
     func syncWithPreferences() {
         let wanted = AppFeature.smoothScroll.isAvailable
-            && UserDefaults.standard.bool(forKey: DefaultsKey.smoothScrollEnabled)
+            && (UserDefaults.standard.bool(forKey: DefaultsKey.smoothScrollEnabled)
+                || MouseAppExceptions.shared.scrollProfilesNeedSmoothTap)
         if SessionActivitySupport.tapShouldRun(featureWanted: wanted,
                                                accessibilityGranted: AXIsProcessTrusted(),
                                                sessionIsActive: SessionActivity.shared.isActive) {
@@ -183,7 +184,8 @@ final class SmoothScrollService: ObservableObject {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             stopGlide()
             let wanted = AppFeature.smoothScroll.isAvailable
-                && UserDefaults.standard.bool(forKey: DefaultsKey.smoothScrollEnabled)
+                && (UserDefaults.standard.bool(forKey: DefaultsKey.smoothScrollEnabled)
+                    || MouseAppExceptions.shared.scrollProfilesNeedSmoothTap)
             let shouldRearm = SessionActivitySupport.tapShouldRun(
                 featureWanted: wanted,
                 accessibilityGranted: AXIsProcessTrusted(),
@@ -261,6 +263,10 @@ final class SmoothScrollService: ObservableObject {
 
         let defaults = UserDefaults.standard
         let profile = exceptions.scrollProfile(at: event.location)
+        guard profile?.smoothScroll ?? defaults.bool(forKey: DefaultsKey.smoothScrollEnabled) else {
+            stopGlide()
+            return Unmanaged.passUnretained(event)
+        }
         let direction = ScrollDirectionPreferences(defaults: defaults, profile: profile)
         let scrollTargetExcluded = exceptions.excludesPointerTarget(
             .scrollDirection,
@@ -343,7 +349,7 @@ final class SmoothScrollService: ObservableObject {
             // never translates continuous events, apps react to the replayed
             // Shift flag.
             let userStep = Double(SmoothScrollSupport.sanitizedStep(
-                defaults.integer(forKey: DefaultsKey.smoothScrollStep)))
+                profile?.smoothStep ?? defaults.integer(forKey: DefaultsKey.smoothScrollStep)))
             let verticalFixedPoint = event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1)
             let verticalPoint = Double(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1))
             let horizontalFixedPoint = event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2)
@@ -401,7 +407,7 @@ final class SmoothScrollService: ObservableObject {
             vertical = axes.vertical * invertVertical
             horizontal = axes.horizontal * invertHorizontal
             step = Double(SmoothScrollSupport.sanitizedStep(
-                defaults.integer(forKey: DefaultsKey.smoothScrollStep)))
+                profile?.smoothStep ?? defaults.integer(forKey: DefaultsKey.smoothScrollStep)))
         }
         guard vertical != 0 || horizontal != 0 else {
             return Unmanaged.passUnretained(event)
@@ -430,10 +436,10 @@ final class SmoothScrollService: ObservableObject {
         currentFlags = glideFlags
         currentScrollRedirected = redirected
         currentResponse = SmoothScrollSupport.sanitizedResponse(
-            defaults.integer(forKey: DefaultsKey.smoothScrollResponse)
+            profile?.smoothResponse ?? defaults.integer(forKey: DefaultsKey.smoothScrollResponse)
         )
         currentCoast = SmoothScrollSupport.sanitizedCoast(
-            defaults.integer(forKey: DefaultsKey.smoothScrollCoast)
+            profile?.smoothCoast ?? defaults.integer(forKey: DefaultsKey.smoothScrollCoast)
         )
         glideFromContinuous = traits.isContinuous
         startGlideIfNeeded()

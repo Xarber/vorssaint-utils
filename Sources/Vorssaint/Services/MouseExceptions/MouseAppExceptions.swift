@@ -121,6 +121,10 @@ final class MouseAppExceptions: ObservableObject {
         lock.withLock { profileLookup.values.contains { ($0.speedMultiplier ?? 1) > 1 } }
     }
 
+    var scrollProfilesNeedSmoothTap: Bool {
+        lock.withLock { profileLookup.values.contains { $0.smoothScroll == true } }
+    }
+
     func setScrollProfile(_ profile: MouseScrollDirectionProfile?, for bundleID: String) {
         var profiles = scrollProfiles
         profiles[bundleID] = profile
